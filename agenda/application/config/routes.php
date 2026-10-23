@@ -51,7 +51,7 @@
 
 require_once __DIR__ . '/../helpers/routes_helper.php';
 
-$route['default_controller'] = 'calendar';
+$route['default_controller'] = 'agenda';
 
 $route['404_override'] = '';
 

@@ -32,7 +32,7 @@ class Login extends EA_Controller
         $this->load->library('email_messages');
 
         script_vars([
-            'dest_url' => session('dest_url', site_url('calendar')),
+            'dest_url' => session('dest_url', site_url('agenda')),
         ]);
     }
 
@@ -42,14 +42,14 @@ class Login extends EA_Controller
     public function index(): void
     {
         if (session('user_id')) {
-            redirect('calendar');
+            redirect('agenda');
             return;
         }
 
         html_vars([
             'page_title' => lang('login'),
             'base_url' => config('base_url'),
-            'dest_url' => session('dest_url', site_url('calendar')),
+            'dest_url' => session('dest_url', site_url('agenda')),
             'company_name' => setting('company_name'),
         ]);
 
