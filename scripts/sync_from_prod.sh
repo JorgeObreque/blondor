@@ -8,7 +8,7 @@ export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-$HOME/.ssh/agent.sock}"
 
 case "${1:-}" in
   db)
-    umask 077
+    umask 022  # el contenedor de MariaDB corre con otro uid y necesita leer el dump
     ssh blondor.web 'mysqldump --defaults-extra-file=~/.my_agenda.cnf --single-transaction --routines --triggers --no-tablespaces cbl116984_blondorc_agenda' \
       | gzip > docker/db/init/01_prod.sql.gz
     echo "Dump guardado: $(du -h docker/db/init/01_prod.sql.gz | cut -f1)"
