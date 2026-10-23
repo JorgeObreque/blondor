@@ -1,0 +1,13 @@
+# Secretos y datos de producción (solo locales)
+.env
+agenda/config.prod.php
+docker/db/init/*.sql.gz
+*.csv
+
+# Runtime de la app
+agenda/storage/logs/*
+agenda/storage/sessions/*
+agenda/storage/cache/*
+!agenda/storage/**/index.html
+
+node_modules/
