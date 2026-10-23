@@ -572,7 +572,7 @@ App.Pages.Agenda = (function () {
             </div>
             <p class="wizard-hint">Busca por nombre o por los últimos dígitos del teléfono.</p>
             <ul class="wizard-list" id="wizard-customers"><li class="agenda-loading"></li></ul>
-            <button type="button" class="wizard-dashed" id="wizard-new-customer">${ICONS.plus}<span>Crear clienta nueva</span></button>
+            <button type="button" class="agenda-fab wizard-fab" id="wizard-new-customer">${ICONS.plus}<span>Clienta nueva</span></button>
         `);
 
         searchCustomers(wizard.keyword || '');
@@ -583,7 +583,7 @@ App.Pages.Agenda = (function () {
 
     function updateNewCustomerLabel() {
         const keyword = (wizard.keyword || '').trim();
-        $('#wizard-new-customer span').text(keyword ? `Crear clienta nueva «${keyword}»` : 'Crear clienta nueva');
+        $('#wizard-new-customer span').text(keyword ? `Crear «${keyword}»` : 'Clienta nueva');
     }
 
     function searchCustomers(keyword) {
@@ -597,7 +597,7 @@ App.Pages.Agenda = (function () {
 
                 if (!customers.length) {
                     $('#wizard-customers').html(
-                        `<li class="wizard-hint">No hay clientas con «${esc(keyword)}». Créala con el botón de abajo.</li>`,
+                        `<li class="wizard-hint">No hay clientas con «${esc(keyword)}». Créala con el botón «Crear».</li>`,
                     );
                     return;
                 }

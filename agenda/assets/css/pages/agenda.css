@@ -354,6 +354,17 @@
   box-shadow: 0 6px 16px rgba(18, 80, 138, 0.35);
 }
 
+.wizard-fab {
+  z-index: 4;
+  max-width: calc(100vw - 32px);
+}
+
+.wizard-fab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Hojas (wizard, ficha, avisos) -------------------------------------------- */
 
 .agenda-backdrop {
