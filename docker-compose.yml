@@ -2,7 +2,7 @@ services:
   app:
     build: ./docker/app
     ports:
-      - "8080:80"
+      - "8088:80"
     volumes:
       - ./agenda:/var/www/html
     environment:

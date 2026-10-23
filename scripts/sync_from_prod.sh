@@ -12,8 +12,10 @@ case "${1:-}" in
     ssh blondor.web 'mysqldump --defaults-extra-file=~/.my_agenda.cnf --single-transaction --routines --triggers --no-tablespaces cbl116984_blondorc_agenda' \
       | gzip > docker/db/init/01_prod.sql.gz
     echo "Dump guardado: $(du -h docker/db/init/01_prod.sql.gz | cut -f1)"
-    docker compose down -v db >/dev/null 2>&1 || true
+    docker compose rm -sfv db >/dev/null 2>&1 || true
+    docker volume rm -f "$(basename "$PWD")_db_data" >/dev/null 2>&1 || true
     docker compose up -d
+    echo -n "Importando"; until docker compose exec -T db mariadb -uagenda -pagenda agenda -e "SELECT 1 FROM ea_webhooks LIMIT 1" >/dev/null 2>&1; do echo -n "."; sleep 2; done; echo
     echo "BD local recreada con los datos de producción."
     ;;
   code)

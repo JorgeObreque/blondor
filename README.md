@@ -11,7 +11,7 @@ docker compose up -d --build
 
 | Servicio | URL |
 |---|---|
-| Agenda | http://localhost:8080 (mismos usuarios que prod) |
+| Agenda | http://localhost:8088 (mismos usuarios que prod) |
 | Correos enviados (Mailpit) | http://localhost:8025 |
 | MariaDB | `localhost:3307`, usuario/clave `agenda`/`agenda`, BD `agenda` |
 
