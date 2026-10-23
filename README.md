@@ -27,3 +27,15 @@ Webhooks y sincronización de calendarios se desactivan al importar (`docker/db/
 
 - `agenda/config.php` es la configuración local; la de prod queda en `agenda/config.prod.php` (no versionada).
 - Con `DEBUG_MODE = false` la app carga los `.min.js`: cada `.js` modificado necesita su `.min.js` actualizado.
+
+## Producción
+
+`agenda.blondor.cl` se sirve desde un clon de este repo en el servidor:
+`~/public_html/agenda` → enlace a `~/blondor/agenda`. Desplegar:
+
+```bash
+ssh blondor.web 'cd ~/blondor && git pull --ff-only'
+```
+
+Antes de hacer push, si cambiaste algún `.js`/`.css`, ejecuta `scripts/build_min.sh` (producción usa los `.min`).
+En el servidor quedan fuera de git: `agenda/config.php`, `agenda/.well-known`, `agenda/cgi-bin` y el contenido de `agenda/storage`.
