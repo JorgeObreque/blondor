@@ -32,6 +32,15 @@
             </li>
 
             <?php $hidden = can('view', PRIV_APPOINTMENTS) ? '' : 'd-none'; ?>
+            <?php $active = $active_menu == 'agenda' ? 'active' : ''; ?>
+            <li class="nav-item <?= $active . $hidden ?>">
+                <a href="<?= site_url('agenda') ?>" class="nav-link">
+                    <i class="fas fa-mobile-alt me-2"></i>
+                    Agenda
+                </a>
+            </li>
+
+            <?php $hidden = can('view', PRIV_APPOINTMENTS) ? '' : 'd-none'; ?>
             <?php $active = $active_menu == PRIV_APPOINTMENTS ? 'active' : ''; ?>
             <li class="nav-item <?= $active . $hidden ?>">
                 <a href="<?= site_url(
