@@ -6,7 +6,8 @@
  * Agenda page.
  *
  * Day view (appointments + free gaps), the 3-step booking flow (customer → service → time), the appointment sheet
- * with statuses and WhatsApp, and the duplicate / overlap / existing-customer warnings.
+ * with statuses and WhatsApp, the duplicate / overlap / existing-customer warnings, and the customer profile with
+ * the technical record of each visit (fields by service group, photos).
  */
 App.Pages.Agenda = (function () {
     const $page = $('#agenda-page');
@@ -22,6 +23,11 @@ App.Pages.Agenda = (function () {
     const $alert = $('#agenda-alert');
     const $backdrop = $('#agenda-backdrop');
     const $toast = $('#agenda-toast');
+    const $profile = $('#agenda-profile');
+    const $profileBody = $('#profile-body');
+    const $record = $('#agenda-record');
+    const $recordBody = $('#record-body');
+    const $recordFooter = $('#record-footer');
 
     const providers = vars('agenda_providers') || [];
     const services = vars('agenda_services') || [];
@@ -42,6 +48,95 @@ App.Pages.Agenda = (function () {
     const DOW_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
     const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     const MIN_FREE_MINUTES = 15;
+    const RECENT_DAYS_FOR_RECORD = 45;
+
+    const DEVELOPER = ['10 vol', '20 vol', '30 vol', '40 vol'];
+
+    /**
+     * Campos de la ficha según el tipo de servicio. "match" decide qué grupos se abren solos según el nombre del
+     * servicio de la cita (una promo puede abrir varios); igual se pueden sumar o quitar a mano.
+     */
+    const SERVICE_GROUPS = [
+        {
+            key: 'color',
+            label: 'Color',
+            match: /\bcolor\b|tinte/i,
+            fields: [
+                {key: 'brand', label: 'Marca', type: 'text', placeholder: 'Ej: Igora Royal'},
+                {key: 'mix', label: 'Tonos y cantidad', type: 'mix'},
+                {key: 'developer', label: 'Oxidante', type: 'pills', options: DEVELOPER},
+                {key: 'time', label: 'Exposición', type: 'number', unit: 'min'},
+                {key: 'zone', label: 'Zona', type: 'pills', options: ['Raíz', 'Medios y puntas', 'Completo']},
+            ],
+        },
+        {
+            key: 'mechas',
+            label: 'Mechas / aclarado',
+            match: /mecha|balay|babyl|visos|contour/i,
+            fields: [
+                {key: 'technique', label: 'Técnica', type: 'pills', options: ['Papel', 'Gorra', 'Balayage', 'Babylight']},
+                {key: 'lightener', label: 'Aclarante y gramos', type: 'text', placeholder: 'Ej: Blondor polvo 40 g'},
+                {key: 'developer', label: 'Oxidante', type: 'pills', options: DEVELOPER},
+                {key: 'additive', label: 'Protector', type: 'pills', options: ['Ninguno', 'Olaplex', 'K18', 'Otro']},
+                {key: 'time', label: 'Exposición', type: 'number', unit: 'min'},
+                {key: 'level', label: 'Nivel alcanzado', type: 'text', placeholder: 'Ej: 9, amarillo pálido'},
+                {key: 'toner', label: 'Matizador y tiempo', type: 'text', placeholder: 'Ej: Blondme ceniza 10 min'},
+            ],
+        },
+        {
+            key: 'alisado',
+            label: 'Alisado / permanente',
+            match: /alisado|^\s*permanente|ondas/i,
+            fields: [
+                {key: 'product', label: 'Producto y fuerza', type: 'text', placeholder: 'Ej: Inoar G-Hair, fuerza 2'},
+                {key: 'rod', label: 'Bigudí / rulo', type: 'text', placeholder: 'Ej: rosado 8 mm'},
+                {key: 'time', label: 'Tiempo de acción', type: 'number', unit: 'min'},
+                {key: 'neutralizer', label: 'Neutralizante', type: 'text'},
+                {key: 'iron', label: 'Temperatura de plancha', type: 'text', placeholder: 'Ej: 200 °C'},
+                {key: 'zone', label: 'Zona', type: 'pills', options: ['Raíz', 'Medios y puntas', 'Completo', 'Chasquilla']},
+            ],
+        },
+        {
+            key: 'tratamiento',
+            label: 'Tratamiento',
+            match: /masaje (ampolla|k18|olaplex|total|hidrat|capilar)|masaje con ampolla|botox|ampolla/i,
+            fields: [
+                {key: 'product', label: 'Producto / ampolla', type: 'text', placeholder: 'Ej: K18 + ampolla Kérastase'},
+                {key: 'condition', label: 'Estado del cabello', type: 'pills', options: ['Normal', 'Seco', 'Dañado', 'Poroso', 'Graso']},
+                {key: 'time', label: 'Tiempo', type: 'number', unit: 'min'},
+                {key: 'heat', label: 'Calor', type: 'pills', options: ['Sin calor', 'Vapor', 'Secador', 'Gorro térmico']},
+                {key: 'frequency', label: 'Frecuencia recomendada', type: 'text', placeholder: 'Ej: cada 15 días'},
+            ],
+        },
+        {
+            key: 'corte',
+            label: 'Corte',
+            match: /corte/i,
+            fields: [
+                {key: 'length', label: 'Largo cortado', type: 'text', placeholder: 'Ej: 3 cm'},
+                {key: 'technique', label: 'Técnica', type: 'pills', options: ['Recto', 'Capas', 'Desmechado', 'Bob', 'Pixie']},
+                {key: 'tool', label: 'Herramienta', type: 'pills', options: ['Tijera', 'Navaja', 'Máquina']},
+                {key: 'styling', label: 'Cómo peinarlo', type: 'textarea'},
+            ],
+        },
+        {
+            key: 'peinado',
+            label: 'Peinado',
+            match: /peinado|brushing/i,
+            fields: [
+                {key: 'style', label: 'Tipo de peinado', type: 'text', placeholder: 'Ej: ondas al agua, recogido bajo'},
+                {key: 'products', label: 'Productos de fijación', type: 'text'},
+            ],
+        },
+    ];
+
+    const HAIR_FIELDS = [
+        {key: 'type', label: 'Tipo', type: 'pills', options: ['Liso', 'Ondulado', 'Rizado', 'Afro']},
+        {key: 'length', label: 'Largo', type: 'pills', options: ['Corto', 'Medio', 'Largo']},
+        {key: 'thickness', label: 'Grosor', type: 'pills', options: ['Fino', 'Medio', 'Grueso']},
+        {key: 'base', label: 'Base natural', type: 'text', placeholder: 'Ej: 6, rubio oscuro'},
+        {key: 'grey', label: '% de canas', type: 'text', placeholder: 'Ej: 30%'},
+    ];
 
     const ICONS = {
         plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
@@ -53,6 +148,10 @@ App.Pages.Agenda = (function () {
             '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z"/><path d="M9 9.5c.5 2 2 3.5 4.5 4.5l1-1.2 2 1-.5 1.7c-3.5.3-7.2-3.4-7-7l1.7-.5 1 2z"/></svg>',
         phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
         clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>',
+        record: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l4 4v14H7z"/><path d="M10 12h6M10 16h6"/></svg>',
+        repeat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5"/><path d="M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></svg>',
+        camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+        close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     };
 
     const state = {
@@ -63,6 +162,8 @@ App.Pages.Agenda = (function () {
     };
 
     let wizard = null;
+    let profile = null;
+    let rec = null;
     let skipPopstate = 0;
     let searchTimer = null;
     let searchSeq = 0;
@@ -215,10 +316,14 @@ App.Pages.Agenda = (function () {
 
     // Sheets & history ------------------------------------------------------------------------------------------
 
+    function isFullSheet($sheet) {
+        return $sheet.hasClass('agenda-sheet--full');
+    }
+
     function openSheet($sheet) {
         $sheet.prop('hidden', false);
 
-        if (!$sheet.is($wizard)) {
+        if (!isFullSheet($sheet)) {
             $backdrop.prop('hidden', false);
         }
 
@@ -240,7 +345,7 @@ App.Pages.Agenda = (function () {
             $backdrop.prop('hidden', true);
         }
 
-        if ($wizard.prop('hidden') && $detail.prop('hidden') && $alert.prop('hidden')) {
+        if (!topSheet()) {
             $('body').removeClass('agenda-locked');
         }
 
@@ -251,19 +356,22 @@ App.Pages.Agenda = (function () {
     }
 
     function topSheet() {
-        if (!$alert.prop('hidden')) {
-            return $alert;
+        return [$alert, $detail, $record, $profile, $wizard].find(($sheet) => !$sheet.prop('hidden')) || null;
+    }
+
+    /**
+     * Close a sheet and forget its state (the "back" button, the Android back gesture or a tap outside).
+     */
+    function dismissSheet($sheet, fromHistory = false) {
+        if ($sheet.is($wizard)) {
+            wizard = null;
+        } else if ($sheet.is($profile)) {
+            profile = null;
+        } else if ($sheet.is($record)) {
+            rec = null;
         }
 
-        if (!$detail.prop('hidden')) {
-            return $detail;
-        }
-
-        if (!$wizard.prop('hidden')) {
-            return $wizard;
-        }
-
-        return null;
+        closeSheet($sheet, fromHistory);
     }
 
     // Toast -----------------------------------------------------------------------------------------------------
@@ -490,10 +598,10 @@ App.Pages.Agenda = (function () {
         const reschedule = options.reschedule || null;
 
         wizard = {
-            step: reschedule ? 3 : 1,
+            step: reschedule ? 3 : options.customer ? 2 : 1,
             customer: reschedule
                 ? {id: reschedule.customer_id, name: reschedule.customer_name, phone_number: reschedule.phone_number}
-                : null,
+                : options.customer || null,
             newCustomer: null,
             creating: false,
             serviceId: reschedule ? reschedule.service_id : null,
@@ -617,6 +725,7 @@ App.Pages.Agenda = (function () {
                                             <span class="wizard-option__title">${esc(name)}</span>
                                             <span class="wizard-option__sub">${esc(maskPhone(customer.phone_number))} · ${visits}</span>
                                             ${fav ? `<span class="wizard-option__fav">Siempre: ${esc(fav.name)}</span>` : ''}
+                                            ${customer.alerts ? `<span class="wizard-option__alert">${ICONS.warn} ${esc(customer.alerts)}</span>` : ''}
                                         </span>
                                         ${ICONS.chevron}
                                     </button>
@@ -1096,12 +1205,20 @@ App.Pages.Agenda = (function () {
             <span class="agenda-sheet__grab" aria-hidden="true"></span>
             <div class="detail-top">
                 <div>
-                    <h2 id="detail-name">${esc(item.customer_name)}</h2>
+                    <h2 id="detail-name">
+                        <button type="button" class="detail-name" id="detail-profile">${esc(item.customer_name)} ${ICONS.chevron}</button>
+                    </h2>
                     <div class="detail-sub">${esc(item.service_name || 'Servicio')}${money(item.price) ? ' · ' + money(item.price) : ''}</div>
                     <div class="detail-when">${esc(dayLabel(date, true))} · ${hm(item.start)} a ${hm(item.end)}</div>
                 </div>
                 <span class="agenda-status" data-status="${esc(item.status)}">${esc(STATUS_LABELS[item.status] || item.status)}</span>
             </div>
+            ${item.alerts ? `<div class="agenda-alertband" role="alert">${ICONS.warn}<span><strong>Alerta:</strong> ${esc(item.alerts)}</span></div>` : ''}
+            ${
+                !item.has_record && (item.status === 'Llegó' || item.status === 'Pagado')
+                    ? `<button type="button" class="detail-complete" id="detail-record-cta">${ICONS.record} Completar ficha de esta visita</button>`
+                    : ''
+            }
             <div class="detail-actions">
                 <a class="detail-action detail-action--wa" target="_blank" rel="noopener"
                    ${phone ? `href="https://wa.me/${phone}?text=${encodeURIComponent(whatsappText(item))}"` : 'aria-disabled="true"'}>
@@ -1110,6 +1227,7 @@ App.Pages.Agenda = (function () {
                 <a class="detail-action detail-action--call" ${telDigits ? `href="tel:${telDigits}"` : 'aria-disabled="true"'}>
                     ${ICONS.phone} Llamar
                 </a>
+                <button type="button" class="detail-action detail-action--record" id="detail-record">${ICONS.record} ${item.has_record ? 'Ver ficha' : 'Ficha'}</button>
                 <button type="button" class="detail-action" id="detail-reschedule">${ICONS.clock} Reagendar</button>
             </div>
             <div>
@@ -1155,6 +1273,814 @@ App.Pages.Agenda = (function () {
             });
     }
 
+    // Customer profile -----------------------------------------------------------------------------------------
+
+    function shortMoney(value) {
+        if (!(value > 0)) {
+            return '—';
+        }
+
+        return value >= 10000 ? '$' + Math.round(value / 1000).toLocaleString('es-CL') + 'k' : money(value);
+    }
+
+    function ago(datetime) {
+        if (!datetime) {
+            return '—';
+        }
+
+        const days = Math.round((parseYmd(today()) - parseYmd(datetime.substring(0, 10))) / 86400000);
+
+        if (days <= 0) {
+            return 'hoy';
+        }
+
+        if (days < 14) {
+            return days === 1 ? '1 día' : days + ' días';
+        }
+
+        if (days < 63) {
+            return Math.round(days / 7) + ' sem';
+        }
+
+        const months = Math.round(days / 30);
+
+        return months < 24 ? months + ' meses' : Math.round(days / 365) + ' años';
+    }
+
+    function shortDate(value) {
+        const date = parseYmd(value.substring(0, 10));
+        const year = date.getFullYear() !== new Date().getFullYear() ? ' ' + date.getFullYear() : '';
+
+        return date.getDate() + ' ' + MONTHS[date.getMonth()] + year;
+    }
+
+    function openClients() {
+        profile = {search: true, keyword: '', customerId: null, data: null};
+        $('#profile-title').text('Clientas');
+        openSheet($profile);
+        renderClientSearch();
+    }
+
+    function openProfile(customerId) {
+        profile = {search: false, customerId, data: null, tab: 'historial'};
+        openSheet($profile);
+        loadProfile();
+    }
+
+    function loadProfile() {
+        const customerId = profile.customerId;
+
+        $('#profile-title').text('Perfil');
+        $profileBody.html('<div class="agenda-loading"></div><div class="agenda-loading"></div><div class="agenda-loading"></div>');
+        $profile.scrollTop(0);
+
+        return App.Http.Agenda.profile(customerId)
+            .then((response) => {
+                if (!profile || profile.customerId !== customerId) {
+                    return;
+                }
+
+                profile.data = response;
+                renderProfile();
+            })
+            .catch((error) => {
+                $profileBody.html(
+                    `<div class="agenda-error">No se pudo cargar el perfil: ${esc(error.message)}</div>
+                     <button type="button" class="agenda-secondary" id="profile-retry">Reintentar</button>`,
+                );
+            });
+    }
+
+    function renderClientSearch() {
+        $profileBody.html(`
+            <div class="profile-search">
+                <div class="wizard-search">
+                    ${ICONS.search}
+                    <input id="profile-search" type="search" autocomplete="off" inputmode="search"
+                           aria-label="Buscar clienta" placeholder="Nombre o teléfono" value="${esc(profile.keyword)}">
+                </div>
+                <ul class="wizard-list" id="profile-customers"><li class="agenda-loading"></li></ul>
+            </div>
+        `);
+
+        searchProfiles(profile.keyword);
+        setTimeout(() => $('#profile-search').trigger('focus'), 50);
+    }
+
+    function searchProfiles(keyword) {
+        const seq = ++searchSeq;
+
+        App.Http.Agenda.customers(keyword)
+            .then((customers) => {
+                if (!profile || !profile.search || seq !== searchSeq) {
+                    return;
+                }
+
+                $('#profile-customers').html(
+                    customers.length
+                        ? customers
+                              .map((customer) => {
+                                  const name = `${customer.first_name || ''} ${customer.last_name || ''}`.trim();
+
+                                  return `
+                                    <li>
+                                        <button type="button" class="wizard-option" data-profile-id="${customer.id}">
+                                            <span class="wizard-avatar" aria-hidden="true">${esc(initials(name))}</span>
+                                            <span class="wizard-option__text">
+                                                <span class="wizard-option__title">${esc(name)}</span>
+                                                <span class="wizard-option__sub">${esc(maskPhone(customer.phone_number))} · ${customer.visits === 1 ? '1 visita' : customer.visits + ' visitas'}</span>
+                                                ${customer.alerts ? `<span class="wizard-option__alert">${ICONS.warn} ${esc(customer.alerts)}</span>` : ''}
+                                            </span>
+                                            ${ICONS.chevron}
+                                        </button>
+                                    </li>`;
+                              })
+                              .join('')
+                        : `<li class="wizard-hint">No hay clientas con «${esc(keyword)}».</li>`,
+                );
+            })
+            .catch((error) => {
+                if (seq === searchSeq) {
+                    $('#profile-customers').html(`<li class="agenda-error">${esc(error.message)}</li>`);
+                }
+            });
+    }
+
+    function renderProfile() {
+        const {customer, profile: fixed, stats, appointments, records} = profile.data;
+        const name = `${customer.first_name || ''} ${customer.last_name || ''}`.trim();
+        const phone = waPhone(customer.phone_number);
+        const telDigits = (customer.phone_number || '').replace(/[^\d+]/g, '');
+        const tab = profile.tab;
+
+        $('#profile-title').text(name);
+
+        $profileBody.html(`
+            <div class="profile-hero">
+                <div class="profile-hero__who">
+                    <span class="profile-avatar" aria-hidden="true">${esc(initials(name))}</span>
+                    <div>
+                        <h2>${esc(name)}</h2>
+                        <span class="profile-hero__sub">${esc(customer.phone_number || 'sin teléfono')}${stats.since ? ' · desde ' + esc(shortDate(stats.since)) : ''}</span>
+                    </div>
+                </div>
+                <div class="profile-hero__actions">
+                    <a class="profile-action profile-action--wa" target="_blank" rel="noopener"
+                       ${phone ? `href="https://wa.me/${phone}"` : 'aria-disabled="true"'}>${ICONS.whatsapp} WhatsApp</a>
+                    <a class="profile-action" ${telDigits ? `href="tel:${telDigits}"` : 'aria-disabled="true"'}>${ICONS.phone} Llamar</a>
+                    <button type="button" class="profile-action" id="profile-book">${ICONS.plus} Agendar</button>
+                </div>
+            </div>
+            ${fixed.alerts ? `<div class="agenda-alertband" role="alert">${ICONS.warn}<span><strong>Alerta:</strong> ${esc(fixed.alerts)}</span></div>` : ''}
+            <div class="profile-stats">
+                <div><strong>${stats.visits}</strong><span>${stats.visits === 1 ? 'visita' : 'visitas'}</span></div>
+                <div><strong>${esc(ago(stats.last_visit))}</strong><span>últ. visita</span></div>
+                <div><strong>${esc(shortMoney(stats.spent))}</strong><span>gastado</span></div>
+                <div><strong>${stats.no_shows}</strong><span>no vino</span></div>
+            </div>
+            <div class="profile-tabs" role="tablist" aria-label="Secciones">
+                <button type="button" role="tab" data-profile-tab="historial" aria-selected="${tab === 'historial'}">Historial</button>
+                <button type="button" role="tab" data-profile-tab="datos" aria-selected="${tab === 'datos'}">Datos y alertas</button>
+            </div>
+            <div class="profile-panel">
+                ${tab === 'historial' ? renderHistory(appointments, records) : renderFixedData(fixed)}
+            </div>
+            ${tab === 'historial' ? `<button type="button" class="agenda-fab" id="profile-new-record">${ICONS.plus} Nueva ficha</button>` : ''}
+        `);
+    }
+
+    function renderHistory(appointments, records) {
+        const recordsByAppointment = {};
+
+        records.forEach((record) => {
+            if (record.appointment_id) {
+                recordsByAppointment[record.appointment_id] = record;
+            }
+        });
+
+        const upcoming = appointments
+            .filter((item) => item.start.substring(0, 10) > today() && item.status !== 'Cancelado')
+            .reverse()
+            .slice(0, 3);
+
+        const entries = [
+            ...appointments
+                .filter((item) => item.start.substring(0, 10) <= today() && item.status !== 'Cancelado')
+                .map((item) => ({date: item.start, item, record: recordsByAppointment[item.id] || null})),
+            ...records
+                .filter((record) => !record.appointment_id)
+                .map((record) => ({date: record.visit_date + ' 23:59', item: null, record})),
+        ].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+        const recentLimit = addDays(today(), -RECENT_DAYS_FOR_RECORD);
+
+        const html = [
+            ...upcoming.map(
+                (item) => `
+                <div class="profile-next">
+                    <span class="profile-next__label">PRÓXIMA</span>
+                    <span class="profile-next__when">${esc(dayLabel(item.start.substring(0, 10), true))} · ${hm(item.start)} · ${esc(item.service_name || 'Cita')}</span>
+                    ${item.provider_name ? `<span class="profile-next__who">con ${esc(item.provider_name)}</span>` : ''}
+                </div>`,
+            ),
+            ...entries.map((entry) => {
+                const item = entry.item;
+                const record = entry.record;
+
+                if (record) {
+                    return recordCard(record, item);
+                }
+
+                if (item.status === 'No vino') {
+                    return `
+                        <div class="profile-visit profile-visit--muted">
+                            <span>${esc(item.service_name || 'Cita')}</span>
+                            <span>${esc(shortDate(item.start))} · No vino</span>
+                        </div>`;
+                }
+
+                const recent = item.start.substring(0, 10) >= recentLimit;
+
+                return `
+                    <article class="profile-visit ${recent ? 'profile-visit--pending' : ''}">
+                        <div class="profile-visit__top">
+                            <h3>${esc(item.service_name || 'Cita')}</h3>
+                            <span>${esc(shortDate(item.start))}</span>
+                        </div>
+                        <span class="profile-visit__sub">${esc([item.provider_name, money(item.price)].filter(Boolean).join(' · '))}</span>
+                        ${
+                            recent
+                                ? `<button type="button" class="profile-complete" data-record-appointment="${item.id}">Sin ficha · Completar ahora</button>`
+                                : `<button type="button" class="wizard-link profile-add-record" data-record-appointment="${item.id}">Agregar ficha</button>`
+                        }
+                    </article>`;
+            }),
+        ];
+
+        return html.length ? html.join('') : '<p class="agenda-empty">Todavía no tiene visitas.</p>';
+    }
+
+    function groupOf(key) {
+        return SERVICE_GROUPS.find((group) => group.key === key);
+    }
+
+    function fieldText(field, value) {
+        if (!value) {
+            return '';
+        }
+
+        if (field.type === 'mix') {
+            return value
+                .split('\n')
+                .map((line) => {
+                    const [tone, grams] = line.split('|');
+                    return tone + (grams ? ` (${grams})` : '');
+                })
+                .join(' + ');
+        }
+
+        return field.unit ? `${value} ${field.unit}` : value;
+    }
+
+    function groupSummary(groupKey, values) {
+        const group = groupOf(groupKey);
+
+        if (!group || !values) {
+            return '';
+        }
+
+        return group.fields
+            .map((field) => fieldText(field, values[field.key]))
+            .filter(Boolean)
+            .join(' · ');
+    }
+
+    function recordCard(record, item) {
+        const details = record.details || {};
+        const groups = Object.keys(details).filter((key) => groupOf(key));
+        const title = (item && item.service_name) || record.service_name || groups.map((key) => groupOf(key).label).join(' + ') || 'Ficha';
+        const who = [(item && item.provider_name) || record.provider_name, item && money(item.price)].filter(Boolean);
+
+        return `
+            <article class="profile-visit">
+                <div class="profile-visit__top">
+                    <h3>${esc(title)}</h3>
+                    <span>${esc(shortDate(record.visit_date))}</span>
+                </div>
+                ${who.length ? `<span class="profile-visit__sub">${esc(who.join(' · '))}</span>` : ''}
+                ${groups
+                    .map(
+                        (key) => `
+                    <div class="profile-formula">
+                        <span class="profile-formula__label">${esc(groupOf(key).label.toUpperCase())}</span>
+                        <span>${esc(groupSummary(key, details[key]))}</span>
+                    </div>`,
+                    )
+                    .join('')}
+                ${record.work ? `<p class="profile-visit__text">${esc(record.work)}</p>` : ''}
+                ${record.result ? `<p class="profile-visit__text">${esc(record.result)}</p>` : ''}
+                ${record.home_care ? `<p class="profile-visit__text"><strong>Para casa:</strong> ${esc(record.home_care)}</p>` : ''}
+                ${renderPhotoStrip(record.photos, false)}
+                <div class="profile-visit__actions">
+                    <button type="button" class="agenda-secondary" data-record-id="${record.id}">Ver / editar ficha</button>
+                </div>
+            </article>`;
+    }
+
+    function renderPhotoStrip(photos, editable) {
+        if (!photos || !photos.length) {
+            return '';
+        }
+
+        return `
+            <div class="record-photos">
+                ${photos
+                    .map(
+                        (photo) => `
+                    <div class="record-photo">
+                        <a href="${App.Http.Agenda.photoUrl(photo.id)}" target="_blank" rel="noopener">
+                            <img src="${App.Http.Agenda.photoUrl(photo.id)}" alt="Foto ${photo.kind === 'antes' ? 'antes' : 'después'}" loading="lazy">
+                        </a>
+                        <span class="record-photo__kind">${photo.kind === 'antes' ? 'Antes' : 'Después'}</span>
+                        ${editable ? `<button type="button" class="record-photo__delete" data-delete-photo="${photo.id}" aria-label="Borrar foto">${ICONS.close}</button>` : ''}
+                    </div>`,
+                    )
+                    .join('')}
+            </div>`;
+    }
+
+    function renderField(field, value, scope) {
+        const attrs = `data-scope="${esc(scope)}" data-field="${esc(field.key)}"`;
+        const id = `f-${scope}-${field.key}`;
+
+        if (field.type === 'pills') {
+            return `
+                <div class="wizard-field" role="group" aria-labelledby="${id}">
+                    <span id="${id}">${esc(field.label)}</span>
+                    <div class="record-pills">
+                        ${field.options
+                            .map(
+                                (option) => `
+                            <button type="button" class="record-pill" ${attrs} data-value="${esc(option)}"
+                                    aria-pressed="${option === value}">${esc(option)}</button>`,
+                            )
+                            .join('')}
+                    </div>
+                </div>`;
+        }
+
+        if (field.type === 'mix') {
+            const rows = (value || '').split('\n').filter(Boolean);
+
+            if (!rows.length) {
+                rows.push('');
+            }
+
+            return `
+                <div class="wizard-field" role="group" aria-labelledby="${id}">
+                    <span id="${id}">${esc(field.label)}</span>
+                    <div class="record-mix" ${attrs}>
+                        ${rows
+                            .map((row) => {
+                                const [tone, grams] = row.split('|');
+                                return `
+                                <div class="record-mix__row">
+                                    <input aria-label="Tono" placeholder="Tono, ej: 7-1" value="${esc(tone || '')}" data-mix="tone">
+                                    <input aria-label="Cantidad" placeholder="Cantidad, ej: 30 g" value="${esc(grams || '')}" data-mix="grams">
+                                </div>`;
+                            })
+                            .join('')}
+                    </div>
+                    <button type="button" class="wizard-dashed" data-add-mix="${esc(scope)}">+ Agregar tono</button>
+                </div>`;
+        }
+
+        if (field.type === 'textarea') {
+            return `
+                <label class="wizard-field">${esc(field.label)}
+                    <textarea rows="2" ${attrs} placeholder="${esc(field.placeholder || '')}">${esc(value || '')}</textarea>
+                </label>`;
+        }
+
+        return `
+            <label class="wizard-field">${esc(field.label)}${field.unit ? ` (${esc(field.unit)})` : ''}
+                <input ${attrs} value="${esc(value || '')}" placeholder="${esc(field.placeholder || '')}"
+                       ${field.type === 'number' ? 'inputmode="numeric"' : ''} autocomplete="off">
+            </label>`;
+    }
+
+    /**
+     * Read every field of a form (data-scope / data-field) into {scope: {field: value}}.
+     */
+    function readFields($root) {
+        const values = {};
+        const put = (scope, field, value) => {
+            values[scope] = values[scope] || {};
+            values[scope][field] = value;
+        };
+
+        $root.find('input[data-field], textarea[data-field]').each((index, element) => {
+            put(element.dataset.scope, element.dataset.field, element.value.trim());
+        });
+
+        $root.find('.record-pills').each((index, element) => {
+            const $first = $(element).find('[data-field]').first();
+
+            if (!$first.length) {
+                return;
+            }
+
+            const $on = $(element).find('[aria-pressed="true"]');
+            put($first.data('scope'), $first.data('field'), $on.length ? String($on.data('value')) : '');
+        });
+
+        $root.find('.record-mix').each((index, element) => {
+            const lines = $(element)
+                .find('.record-mix__row')
+                .map((i, row) => {
+                    const tone = $(row).find('[data-mix="tone"]').val().trim();
+                    const grams = $(row).find('[data-mix="grams"]').val().trim();
+                    return tone || grams ? `${tone}|${grams}` : null;
+                })
+                .get()
+                .filter(Boolean);
+            put(element.dataset.scope, element.dataset.field, lines.join('\n'));
+        });
+
+        return values;
+    }
+
+    function renderFixedData(fixed) {
+        const hair = fixed.hair || {};
+
+        return `
+            <form class="wizard-form profile-form" id="profile-form" novalidate>
+                <label class="wizard-field">Alertas
+                    <textarea rows="2" data-scope="profile" data-field="alerts"
+                              placeholder="Ej: alergia al amoníaco, cuero cabelludo sensible">${esc(fixed.alerts)}</textarea>
+                </label>
+                <p class="wizard-hint">Las alertas se muestran en rojo en cada cita y al agendar.</p>
+                <h3 class="record-group__title">Cabello</h3>
+                ${HAIR_FIELDS.map((field) => renderField(field, hair[field.key], 'hair')).join('')}
+                <label class="wizard-field">Preferencias
+                    <textarea rows="3" data-scope="profile" data-field="preferences"
+                              placeholder="Ej: le gustan los tonos fríos, prefiere la mañana">${esc(fixed.preferences)}</textarea>
+                </label>
+                <button type="submit" class="agenda-primary" id="profile-save">Guardar datos</button>
+            </form>`;
+    }
+
+    function saveFixedData() {
+        const values = readFields($('#profile-form'));
+        const data = {
+            alerts: values.profile.alerts,
+            preferences: values.profile.preferences,
+            hair: values.hair || {},
+        };
+        const customerId = profile.customerId;
+
+        $('#profile-save').prop('disabled', true).html('<span class="agenda-spinner" aria-hidden="true"></span> Guardando…');
+
+        App.Http.Agenda.saveProfile(customerId, data)
+            .then((response) => {
+                if (profile && profile.customerId === customerId) {
+                    profile.data.profile = response.profile;
+                    renderProfile();
+                }
+
+                toast('Datos guardados');
+
+                if (state.day) {
+                    loadDay();
+                }
+            })
+            .catch((error) => {
+                $('#profile-save').prop('disabled', false).text('Guardar datos');
+                toast('No se guardó: ' + error.message, {error: true});
+            });
+    }
+
+    function bookFromProfile() {
+        const customer = profile.data.customer;
+
+        dismissSheet($profile);
+        setTimeout(
+            () =>
+                openWizard({
+                    customer: {
+                        id: customer.id,
+                        name: `${customer.first_name || ''} ${customer.last_name || ''}`.trim(),
+                        first_name: customer.first_name,
+                        phone_number: customer.phone_number,
+                        favorite_service_id: customer.favorite_service_id,
+                    },
+                }),
+            0,
+        );
+    }
+
+    // Visit record -----------------------------------------------------------------------------------------------
+
+    function groupsForService(serviceName) {
+        const name = serviceName || '';
+        return SERVICE_GROUPS.filter((group) => group.match.test(name)).map((group) => group.key);
+    }
+
+    /**
+     * @param {Object} params {appointment_id} | {record_id} | {customer_id} (new record without appointment).
+     */
+    function openRecord(params) {
+        rec = {params, data: null, saving: false, uploading: 0};
+        openSheet($record);
+        $recordFooter.prop('hidden', true).empty();
+        $recordBody.html('<div class="agenda-loading"></div><div class="agenda-loading"></div>');
+
+        App.Http.Agenda.record(params)
+            .then((response) => {
+                if (!rec || rec.params !== params) {
+                    return;
+                }
+
+                const record = response.record;
+                const details = (record && record.details) || {};
+                const serviceName = (response.appointment && response.appointment.service_name) || '';
+
+                rec.data = response;
+                rec.recordId = record ? record.id : null;
+                rec.photos = record ? record.photos : [];
+                rec.groups = record && Object.keys(details).length ? Object.keys(details) : groupsForService(serviceName);
+                rec.values = {...details, general: record || {}};
+                rec.weeks = record && record.next_visit_weeks ? String(record.next_visit_weeks) : '';
+                rec.visitDate = record ? record.visit_date : today();
+
+                renderRecord();
+            })
+            .catch((error) => {
+                $recordBody.html(`<div class="agenda-error">No se pudo abrir la ficha: ${esc(error.message)}</div>`);
+            });
+    }
+
+    function collectRecord() {
+        if (!rec || !rec.data) {
+            return;
+        }
+
+        const values = readFields($recordBody);
+
+        Object.keys(values).forEach((scope) => {
+            rec.values[scope] = {...(rec.values[scope] || {}), ...values[scope]};
+        });
+
+        const $weeks = $recordBody.find('[data-weeks][aria-pressed="true"]');
+        rec.weeks = $weeks.length ? String($weeks.data('weeks')) : '';
+
+        const $date = $('#record-date');
+
+        if ($date.length && $date.val()) {
+            rec.visitDate = $date.val();
+        }
+    }
+
+    function renderRecord() {
+        const {appointment, customer, alerts, previous} = rec.data;
+        const general = rec.values.general || {};
+        const sub = appointment
+            ? `${dayLabel(appointment.start.substring(0, 10), true)} · ${hm(appointment.start)}${provider(appointment.provider_id) ? ' · con ' + provider(appointment.provider_id).name : ''}`
+            : null;
+
+        $('#record-title').text(rec.recordId ? 'Ficha de la visita' : 'Nueva ficha');
+
+        $recordBody.html(`
+            <div class="record-head">
+                <strong>${esc(customer.name)}${appointment && appointment.service_name ? ' · ' + esc(appointment.service_name) : ''}</strong>
+                ${
+                    sub
+                        ? `<span>${esc(sub)}</span>`
+                        : `<label class="wizard-field">Fecha de la visita
+                               <input type="date" id="record-date" max="${today()}" value="${esc(rec.visitDate)}">
+                           </label>`
+                }
+            </div>
+            ${alerts ? `<div class="agenda-alertband" role="alert">${ICONS.warn}<span><strong>Alerta:</strong> ${esc(alerts)}</span></div>` : ''}
+            <div class="wizard-field" role="group" aria-labelledby="record-groups-label">
+                <span id="record-groups-label">¿Qué se hizo?</span>
+                <div class="record-pills">
+                    ${SERVICE_GROUPS.map(
+                        (group) => `
+                        <button type="button" class="record-pill" data-toggle-group="${group.key}"
+                                aria-pressed="${rec.groups.includes(group.key)}">${esc(group.label)}</button>`,
+                    ).join('')}
+                </div>
+            </div>
+            ${SERVICE_GROUPS.filter((group) => rec.groups.includes(group.key))
+                .map((group) => {
+                    const last = previous[group.key];
+
+                    return `
+                    <section class="record-group" aria-labelledby="g-${group.key}">
+                        <div class="record-group__head">
+                            <h3 class="record-group__title" id="g-${group.key}">${esc(group.label)}</h3>
+                            ${
+                                last
+                                    ? `<button type="button" class="record-repeat" data-repeat="${group.key}">${ICONS.repeat} Repetir ${esc(shortDate(last.date))}</button>`
+                                    : ''
+                            }
+                        </div>
+                        ${last ? `<p class="record-last">Última vez: ${esc(groupSummary(group.key, last.values))}</p>` : ''}
+                        ${group.fields.map((field) => renderField(field, (rec.values[group.key] || {})[field.key], group.key)).join('')}
+                    </section>`;
+                })
+                .join('')}
+            <section class="record-group" aria-labelledby="g-general">
+                <h3 class="record-group__title" id="g-general">Trabajo y resultado</h3>
+                ${renderField({key: 'work', label: 'Qué se hizo', type: 'textarea', placeholder: 'Detalle del trabajo'}, general.work, 'general')}
+                ${renderField({key: 'products', label: 'Productos usados', type: 'text', placeholder: 'Ej: Olaplex n°1, Blondme ceniza'}, general.products, 'general')}
+                ${renderField({key: 'result', label: 'Resultado y observaciones', type: 'textarea', placeholder: 'Cómo quedó, qué cambiar la próxima vez'}, general.result, 'general')}
+                ${renderField({key: 'home_care', label: 'Recomendación para casa', type: 'text', placeholder: 'Ej: shampoo matizador 1 vez por semana'}, general.home_care, 'general')}
+                <div class="wizard-field" role="group" aria-labelledby="record-weeks-label">
+                    <span id="record-weeks-label">Próxima visita sugerida</span>
+                    <div class="record-pills">
+                        ${['4', '6', '8', '12']
+                            .map(
+                                (weeks) => `
+                            <button type="button" class="record-pill" data-weeks="${weeks}" aria-pressed="${weeks === rec.weeks}">${weeks} sem</button>`,
+                            )
+                            .join('')}
+                    </div>
+                </div>
+            </section>
+            <section class="record-group" aria-labelledby="g-photos">
+                <h3 class="record-group__title" id="g-photos">Fotos</h3>
+                ${renderPhotoStrip(rec.photos, true)}
+                <div class="record-photo-add">
+                    <label class="record-photo-btn">${ICONS.camera} Antes
+                        <input type="file" accept="image/*" data-photo-kind="antes" hidden>
+                    </label>
+                    <label class="record-photo-btn">${ICONS.camera} Después
+                        <input type="file" accept="image/*" data-photo-kind="despues" hidden>
+                    </label>
+                </div>
+                ${rec.uploading ? '<p class="wizard-hint"><span class="agenda-spinner agenda-spinner--dark" aria-hidden="true"></span> Subiendo foto…</p>' : ''}
+                <p class="wizard-hint">Las fotos solo se ven con sesión iniciada en la agenda.</p>
+            </section>
+        `);
+
+        renderRecordFooter();
+    }
+
+    function renderRecordFooter() {
+        $recordFooter.prop('hidden', false).html(`
+            <button type="button" class="agenda-primary" id="record-save" ${rec.saving ? 'disabled' : ''}>
+                ${rec.saving ? '<span class="agenda-spinner" aria-hidden="true"></span> Guardando…' : ICONS.check + ' Guardar ficha'}
+            </button>`);
+    }
+
+    function recordPayload() {
+        collectRecord();
+
+        const details = {};
+
+        rec.groups.forEach((key) => {
+            details[key] = rec.values[key] || {};
+        });
+
+        const general = rec.values.general || {};
+        const params = rec.data.appointment ? {appointment_id: rec.data.appointment.id} : {};
+
+        return {
+            id: rec.recordId || '',
+            ...params,
+            customer_id: rec.data.customer.id,
+            visit_date: rec.visitDate,
+            details,
+            work: general.work || '',
+            products: general.products || '',
+            result: general.result || '',
+            home_care: general.home_care || '',
+            next_visit_weeks: rec.weeks,
+        };
+    }
+
+    /**
+     * Save the record (also before the first photo, which needs a record id).
+     */
+    function persistRecord() {
+        return App.Http.Agenda.saveRecord(recordPayload()).then((response) => {
+            if (rec) {
+                rec.recordId = response.record.id;
+                rec.photos = response.record.photos;
+            }
+
+            return response.record;
+        });
+    }
+
+    function saveRecord() {
+        if (!rec || rec.saving) {
+            return;
+        }
+
+        rec.saving = true;
+        renderRecordFooter();
+
+        persistRecord()
+            .then(() => {
+                dismissSheet($record);
+                toast('Ficha guardada');
+                refreshAfterRecord();
+            })
+            .catch((error) => {
+                if (rec) {
+                    rec.saving = false;
+                    renderRecordFooter();
+                }
+
+                toast('No se guardó la ficha: ' + error.message, {error: true});
+            });
+    }
+
+    function refreshAfterRecord() {
+        if (profile && profile.customerId) {
+            loadProfile();
+        }
+
+        loadDay();
+    }
+
+    /**
+     * Shrink a phone photo before uploading (max 1600 px, JPEG): a few hundred KB instead of several MB.
+     */
+    function compressImage(file) {
+        return new Promise((resolve) => {
+            const url = URL.createObjectURL(file);
+            const image = new Image();
+
+            image.onload = () => {
+                const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(image.naturalWidth * scale);
+                canvas.height = Math.round(image.naturalHeight * scale);
+                canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.82);
+            };
+
+            // Formats the browser cannot draw (e.g. HEIC on some phones) go as they are; the server checks them.
+            image.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(file);
+            };
+
+            image.src = url;
+        });
+    }
+
+    function uploadPhoto(file, kind) {
+        if (!rec || !file) {
+            return;
+        }
+
+        const current = rec;
+
+        collectRecord();
+        current.uploading++;
+        renderRecord();
+
+        const ready = current.recordId ? Promise.resolve() : persistRecord();
+
+        ready
+            .then(() => compressImage(file))
+            .then((blob) => App.Http.Agenda.uploadPhoto(current.recordId, kind, blob))
+            .then((response) => {
+                current.photos = response.record.photos;
+            })
+            .catch((error) => toast('No se subió la foto: ' + error.message, {error: true}))
+            .finally(() => {
+                current.uploading--;
+
+                if (rec === current) {
+                    collectRecord();
+                    renderRecord();
+                }
+            });
+    }
+
+    function deletePhoto(photoId) {
+        if (!rec || !window.confirm('¿Borrar esta foto?')) {
+            return;
+        }
+
+        App.Http.Agenda.deletePhoto(photoId)
+            .then((response) => {
+                if (rec) {
+                    collectRecord();
+                    rec.photos = response.record.photos;
+                    renderRecord();
+                }
+            })
+            .catch((error) => toast('No se borró la foto: ' + error.message, {error: true}));
+    }
+
     // Events ----------------------------------------------------------------------------------------------------
 
     function bindEvents() {
@@ -1190,6 +2116,8 @@ App.Pages.Agenda = (function () {
         });
 
         $('#agenda-add').on('click', () => openWizard());
+
+        $('#agenda-clients').on('click', openClients);
 
         // Wizard.
         $('#wizard-close').on('click', closeWizard);
@@ -1306,6 +2234,108 @@ App.Pages.Agenda = (function () {
             setStatus(String($button.data('status')), $button);
         });
 
+        $detail.on('click', '#detail-profile', () => {
+            const item = $detail.data('appointment');
+            closeSheet($detail);
+            setTimeout(() => openProfile(item.customer_id), 0);
+        });
+
+        $detail.on('click', '#detail-record, #detail-record-cta', () => {
+            const item = $detail.data('appointment');
+            closeSheet($detail);
+            setTimeout(() => openRecord({appointment_id: item.id}), 0);
+        });
+
+        // Profile.
+        $('[data-close-sheet]').on('click', (event) => dismissSheet($(event.currentTarget).closest('.agenda-sheet')));
+
+        $profileBody.on('input', '#profile-search', (event) => {
+            profile.keyword = event.target.value;
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => searchProfiles(profile.keyword.trim()), 250);
+        });
+
+        $profileBody.on('click', '[data-profile-id]', (event) => {
+            profile = {search: false, customerId: Number($(event.currentTarget).data('profile-id')), data: null, tab: 'historial'};
+            loadProfile();
+        });
+
+        $profileBody.on('click', '#profile-retry', loadProfile);
+
+        $profileBody.on('click', '[data-profile-tab]', (event) => {
+            profile.tab = $(event.currentTarget).data('profile-tab');
+            renderProfile();
+        });
+
+        $profileBody.on('click', '#profile-book', bookFromProfile);
+
+        $profileBody.on('submit', '#profile-form', (event) => {
+            event.preventDefault();
+            saveFixedData();
+        });
+
+        $profileBody.on('click', '[data-record-appointment]', (event) => {
+            openRecord({appointment_id: Number($(event.currentTarget).data('record-appointment'))});
+        });
+
+        $profileBody.on('click', '[data-record-id]', (event) => {
+            openRecord({record_id: Number($(event.currentTarget).data('record-id'))});
+        });
+
+        $profileBody.on('click', '#profile-new-record', () => {
+            // La cita de hoy sin ficha es casi siempre la que se quiere registrar.
+            const pending = profile.data.appointments.find(
+                (item) => item.start.substring(0, 10) === today() && !item.has_record && item.status !== 'Cancelado',
+            );
+
+            openRecord(pending ? {appointment_id: pending.id} : {customer_id: profile.customerId});
+        });
+
+        // Pills of the profile and record forms (single choice: tap again to clear).
+        $page.on('click', '.record-pill[data-field], .record-pill[data-weeks]', (event) => {
+            const $pill = $(event.currentTarget);
+            const on = $pill.attr('aria-pressed') === 'true';
+            $pill.siblings().attr('aria-pressed', 'false');
+            $pill.attr('aria-pressed', on ? 'false' : 'true');
+        });
+
+        $page.on('click', '[data-add-mix]', (event) => {
+            const $mix = $(event.currentTarget).siblings('.record-mix');
+            const $row = $mix.find('.record-mix__row').first().clone();
+            $row.find('input').val('');
+            $mix.append($row);
+            $row.find('input').first().trigger('focus');
+        });
+
+        // Record.
+        $recordBody.on('click', '[data-toggle-group]', (event) => {
+            const key = $(event.currentTarget).data('toggle-group');
+            collectRecord();
+            rec.groups = rec.groups.includes(key) ? rec.groups.filter((item) => item !== key) : [...rec.groups, key];
+            renderRecord();
+        });
+
+        $recordBody.on('click', '[data-repeat]', (event) => {
+            const key = $(event.currentTarget).data('repeat');
+            collectRecord();
+            rec.values[key] = {...rec.data.previous[key].values};
+            renderRecord();
+            toast('Copiada la ficha del ' + shortDate(rec.data.previous[key].date));
+        });
+
+        $recordBody.on('change', '[data-photo-kind]', (event) => {
+            const input = event.target;
+            const file = input.files && input.files[0];
+            input.value = '';
+            uploadPhoto(file, input.dataset.photoKind);
+        });
+
+        $recordBody.on('click', '[data-delete-photo]', (event) => {
+            deletePhoto(Number($(event.currentTarget).data('delete-photo')));
+        });
+
+        $recordFooter.on('click', '#record-save', saveRecord);
+
         $detail.on('click', '#detail-reschedule', () => {
             const item = $detail.data('appointment');
             closeSheet($detail);
@@ -1315,7 +2345,7 @@ App.Pages.Agenda = (function () {
         $backdrop.on('click', () => {
             const $top = topSheet();
 
-            if ($top && !$top.is($wizard)) {
+            if ($top && !isFullSheet($top)) {
                 closeSheet($top);
             }
         });
@@ -1329,15 +2359,9 @@ App.Pages.Agenda = (function () {
 
             const $top = topSheet();
 
-            if (!$top) {
-                return;
+            if ($top) {
+                dismissSheet($top, true);
             }
-
-            if ($top.is($wizard)) {
-                wizard = null;
-            }
-
-            closeSheet($top, true);
         });
 
         // Coming back to the tab after a while: refresh so the agenda is never stale.
@@ -1362,5 +2386,7 @@ App.Pages.Agenda = (function () {
     return {
         loadDay,
         openWizard,
+        openProfile,
+        openRecord,
     };
 })();

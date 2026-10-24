@@ -16,15 +16,16 @@ App.Http.Agenda = (function () {
      *
      * @return {Promise<Object>}
      */
-    function post(path, data) {
+    function post(path, data, options = {}) {
         return new Promise((resolve, reject) => {
             $.ajax({
                 url: App.Utils.Url.siteUrl(path),
                 method: 'POST',
-                data: {csrf_token: vars('csrf_token'), ...data},
+                data: data instanceof FormData ? data : {csrf_token: vars('csrf_token'), ...data},
                 dataType: 'json',
-                timeout: 20000,
+                timeout: options.timeout || 20000,
                 global: false,
+                ...(data instanceof FormData ? {processData: false, contentType: false} : {}),
             })
                 .done(resolve)
                 .fail((jqXHR, textStatus) => {
@@ -76,6 +77,40 @@ App.Http.Agenda = (function () {
         return post('agenda/undo', {appointment_id: appointmentId});
     }
 
+    function profile(customerId) {
+        return post('agenda/profile', {customer_id: customerId});
+    }
+
+    function saveProfile(customerId, profile) {
+        return post('agenda/save_profile', {customer_id: customerId, profile});
+    }
+
+    function record(params) {
+        return post('agenda/record', params);
+    }
+
+    function saveRecord(record) {
+        return post('agenda/save_record', {record});
+    }
+
+    function uploadPhoto(recordId, kind, blob) {
+        const data = new FormData();
+        data.append('csrf_token', vars('csrf_token'));
+        data.append('record_id', recordId);
+        data.append('kind', kind);
+        data.append('photo', blob, 'foto.jpg');
+
+        return post('agenda/upload_photo', data, {timeout: 90000});
+    }
+
+    function deletePhoto(photoId) {
+        return post('agenda/delete_photo', {photo_id: photoId});
+    }
+
+    function photoUrl(photoId) {
+        return App.Utils.Url.siteUrl('agenda/photo/' + photoId);
+    }
+
     return {
         day,
         availableHours,
@@ -83,5 +118,12 @@ App.Http.Agenda = (function () {
         save,
         setStatus,
         undo,
+        profile,
+        saveProfile,
+        record,
+        saveRecord,
+        uploadPhoto,
+        deletePhoto,
+        photoUrl,
     };
 })();

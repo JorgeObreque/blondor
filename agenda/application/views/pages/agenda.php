@@ -16,6 +16,9 @@
         <div class="agenda-head__row">
             <h1 id="agenda-title" class="agenda-head__title">Hoy</h1>
             <div class="agenda-head__actions">
+                <button type="button" id="agenda-clients" class="agenda-iconbtn" aria-label="Clientas">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                </button>
                 <button type="button" id="agenda-today" class="agenda-iconbtn" aria-label="Ir a hoy">Hoy</button>
                 <label id="agenda-pick-date" class="agenda-iconbtn agenda-datepick" title="Elegir fecha">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
@@ -53,6 +56,37 @@
         </header>
         <div id="wizard-body" class="wizard-body"></div>
         <footer id="wizard-footer" class="wizard-footer" hidden></footer>
+    </section>
+
+    <!-- Perfil de la clienta -->
+    <section id="agenda-profile" class="agenda-sheet agenda-sheet--full agenda-sheet--profile" role="dialog"
+             aria-modal="true" aria-labelledby="profile-title" hidden>
+        <header class="wizard-head">
+            <div class="wizard-head__row">
+                <button type="button" class="agenda-iconbtn agenda-iconbtn--plain" data-close-sheet aria-label="Volver">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <span id="profile-title" class="wizard-head__title">Clientas</span>
+                <span style="width: 44px"></span>
+            </div>
+        </header>
+        <div id="profile-body" class="profile-body"></div>
+    </section>
+
+    <!-- Ficha técnica de una visita -->
+    <section id="agenda-record" class="agenda-sheet agenda-sheet--full agenda-sheet--record" role="dialog"
+             aria-modal="true" aria-labelledby="record-title" hidden>
+        <header class="wizard-head">
+            <div class="wizard-head__row">
+                <button type="button" class="agenda-iconbtn agenda-iconbtn--plain" data-close-sheet aria-label="Volver">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <span id="record-title" class="wizard-head__title">Ficha de la visita</span>
+                <span style="width: 44px"></span>
+            </div>
+        </header>
+        <div id="record-body" class="wizard-body"></div>
+        <footer id="record-footer" class="wizard-footer" hidden></footer>
     </section>
 
     <!-- Ficha de una cita -->

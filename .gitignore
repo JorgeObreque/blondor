@@ -11,3 +11,6 @@ agenda/storage/cache/*
 !agenda/storage/**/index.html
 
 node_modules/
+agenda/storage/uploads/visits/*
+!agenda/storage/uploads/visits/.htaccess
+!agenda/storage/uploads/visits/index.html
