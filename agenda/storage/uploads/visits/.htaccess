@@ -1,6 +1,8 @@
-<IfModule mod_authz_core.c>
-    Require all denied
+# Las fotos de las fichas solo se sirven con sesión (agenda/photo/{id}), nunca por URL directa.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^ - [F]
 </IfModule>
-<IfModule !mod_authz_core.c>
-    Deny from all
+<IfModule !mod_rewrite.c>
+    Require all denied
 </IfModule>

@@ -927,7 +927,7 @@ class Agenda extends EA_Controller
         if (!is_file($base . '.htaccess')) {
             file_put_contents(
                 $base . '.htaccess',
-                "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Deny from all\n</IfModule>\n",
+                "<IfModule mod_rewrite.c>\n    RewriteEngine On\n    RewriteRule ^ - [F]\n</IfModule>\n<IfModule !mod_rewrite.c>\n    Require all denied\n</IfModule>\n",
             );
         }
 
