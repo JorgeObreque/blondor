@@ -109,14 +109,31 @@
   padding: 0;
 }
 
+.agenda-datepick {
+  position: relative;
+  overflow: hidden;
+}
+
+/* El input cubre todo el botón: el toque abre el selector nativo del celular. */
 .agenda-date-input {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
   opacity: 0;
   border: 0;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.agenda-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  cursor: pointer;
 }
 
 .agenda-days {

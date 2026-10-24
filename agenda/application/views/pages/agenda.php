@@ -17,10 +17,10 @@
             <h1 id="agenda-title" class="agenda-head__title">Hoy</h1>
             <div class="agenda-head__actions">
                 <button type="button" id="agenda-today" class="agenda-iconbtn" aria-label="Ir a hoy">Hoy</button>
-                <button type="button" id="agenda-pick-date" class="agenda-iconbtn" aria-label="Elegir fecha">
+                <label id="agenda-pick-date" class="agenda-iconbtn agenda-datepick" title="Elegir fecha">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
-                </button>
-                <input type="date" id="agenda-date-input" class="agenda-date-input" tabindex="-1" aria-hidden="true">
+                    <input type="date" id="agenda-date-input" class="agenda-date-input" aria-label="Elegir fecha">
+                </label>
             </div>
         </div>
         <nav id="agenda-days" class="agenda-days" aria-label="Días"></nav>

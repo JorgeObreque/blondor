@@ -1168,14 +1168,12 @@ App.Pages.Agenda = (function () {
 
         $('#agenda-today').on('click', () => goTo(today()));
 
-        $('#agenda-pick-date').on('click', () => {
-            const input = document.getElementById('agenda-date-input');
-
-            if (input.showPicker) {
-                input.showPicker();
-            } else {
-                input.focus();
-                input.click();
+        // En escritorio el clic sobre el input no siempre abre el calendario; en el celular ya lo abre solo.
+        $('#agenda-date-input').on('click', (event) => {
+            try {
+                event.target.showPicker && event.target.showPicker();
+            } catch (error) {
+                // El navegador ya mostró su selector o no lo permite.
             }
         });
 
