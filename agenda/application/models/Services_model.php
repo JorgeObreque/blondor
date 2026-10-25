@@ -274,8 +274,16 @@ class Services_model extends EA_Model
      */
     public function get_available_services(bool $without_private = false): array
     {
+        // Blondor: los servicios ocultos del catálogo no se ofrecen al agendar (sus citas pasadas se conservan).
+        // Se consulta antes de armar el filtro: field_exists() lanza su propia consulta.
+        $has_archived = $this->db->field_exists('is_archived', 'services');
+
         if ($without_private) {
             $this->db->where('services.is_private', false);
+        }
+
+        if ($has_archived) {
+            $this->db->where('services.is_archived', false);
         }
 
         $services = $this->db

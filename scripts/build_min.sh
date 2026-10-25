@@ -8,6 +8,9 @@ for src in \
   assets/js/pages/agenda.js \
   assets/js/http/agenda_http_client.js \
   assets/css/pages/agenda.css \
+  assets/js/pages/service_prices.js \
+  assets/js/http/service_prices_http_client.js \
+  assets/css/pages/service_prices.css \
   assets/js/pages/register_service.js \
   assets/js/http/register_service_http_client.js \
   assets/js/pages/providers.js; do

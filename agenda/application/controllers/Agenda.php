@@ -92,6 +92,7 @@ class Agenda extends EA_Controller
                 'name' => $service['name'],
                 'duration' => (int) $service['duration'],
                 'price' => (float) $service['price'],
+                'price_type' => $service['price_type'] ?? 'fixed',
                 'category_id' => $service['id_service_categories'] ? (int) $service['id_service_categories'] : null,
             ],
             $this->services_model->get_available_services(),
@@ -130,7 +131,7 @@ class Agenda extends EA_Controller
             $rows = $this->db
                 ->select(
                     'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
-                    s.name AS service_name, s.duration, s.price,
+                    s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price,
                     c.first_name, c.last_name, c.phone_number',
                 )
                 ->from('appointments a')
@@ -463,7 +464,7 @@ class Agenda extends EA_Controller
                     'COUNT(DISTINCT CASE WHEN a.start_datetime < ' . $this->db->escape($now) . ' AND IFNULL(a.status, "") NOT IN ("Cancelado", "No vino") THEN DATE(a.start_datetime) END) AS visits,
                     MAX(CASE WHEN a.start_datetime < ' . $this->db->escape($now) . ' AND IFNULL(a.status, "") NOT IN ("Cancelado", "No vino") THEN a.start_datetime END) AS last_visit,
                     SUM(a.status = "No vino") AS no_shows,
-                    SUM(CASE WHEN a.start_datetime < ' . $this->db->escape($now) . ' AND IFNULL(a.status, "") NOT IN ("Cancelado", "No vino") THEN IFNULL(s.price, 0) ELSE 0 END) AS spent,
+                    SUM(CASE WHEN a.start_datetime < ' . $this->db->escape($now) . ' AND IFNULL(a.status, "") NOT IN ("Cancelado", "No vino") THEN IFNULL(a.price, IFNULL(s.price, 0)) ELSE 0 END) AS spent,
                     MIN(a.start_datetime) AS since',
                     false,
                 )
@@ -477,7 +478,7 @@ class Agenda extends EA_Controller
             $rows = $this->db
                 ->select(
                     'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
-                    a.id_users_provider, s.name AS service_name, s.duration, s.price,
+                    a.id_users_provider, s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price,
                     c.first_name, c.last_name, c.phone_number, p.first_name AS provider_first_name',
                 )
                 ->from('appointments a')
@@ -977,7 +978,7 @@ class Agenda extends EA_Controller
         $row = $this->db
             ->select(
                 'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
-                a.id_users_provider, s.name AS service_name, s.duration, s.price,
+                a.id_users_provider, s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price,
                 c.first_name, c.last_name, c.phone_number',
             )
             ->from('appointments a')

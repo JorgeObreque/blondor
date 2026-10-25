@@ -53,6 +53,10 @@ require_once __DIR__ . '/../helpers/routes_helper.php';
 
 $route['default_controller'] = 'agenda';
 
+$route['precios'] = 'service_prices';
+
+$route['precios/(:any)'] = 'service_prices/$1';
+
 $route['404_override'] = '';
 
 $route['translate_uri_dashes'] = false;

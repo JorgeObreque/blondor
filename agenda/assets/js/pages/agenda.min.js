@@ -231,6 +231,15 @@ App.Pages.Agenda = (function () {
         return value > 0 ? '$' + Math.round(value).toLocaleString('es-CL') : null;
     }
 
+    /**
+     * Price of a service as the catalog shows it: "desde $95.500" when it depends on the hair.
+     */
+    function servicePrice(item) {
+        const value = money(item.price);
+
+        return value && item.price_type === 'from' ? 'desde ' + value : value;
+    }
+
     function dayLabel(value, long = false) {
         const date = parseYmd(value);
         const diff = Math.round((date - parseYmd(today())) / 86400000);
@@ -845,7 +854,7 @@ App.Pages.Agenda = (function () {
                 fav && allowed.includes(fav)
                     ? `<button type="button" class="wizard-favorite" data-service-id="${fav.id}">
                            <span class="wizard-favorite__label">LO DE SIEMPRE DE ${esc(firstName.toUpperCase())}</span>
-                           <span class="wizard-favorite__row"><span>${esc(fav.name)}</span><span>${money(fav.price) || ''}</span></span>
+                           <span class="wizard-favorite__row"><span>${esc(fav.name)}</span><span>${servicePrice(fav) || ''}</span></span>
                            <span style="font-size: 13px; opacity: .9">${duration(fav.duration)}</span>
                        </button>`
                     : ''
@@ -870,8 +879,8 @@ App.Pages.Agenda = (function () {
                                 <span class="wizard-option__sub">${duration(item.duration)}</span>
                             </span>
                             ${
-                                money(item.price)
-                                    ? `<span class="wizard-option__price">${money(item.price)}</span>`
+                                servicePrice(item)
+                                    ? `<span class="wizard-option__price">${servicePrice(item)}</span>`
                                     : '<span class="wizard-option__price--none">Sin precio</span>'
                             }
                         </button>
@@ -1014,7 +1023,7 @@ App.Pages.Agenda = (function () {
                         <div class="wizard-summary__title">${esc(wizard.customer.name)} · ${esc(svc.name)}</div>
                         <div class="wizard-summary__sub">${esc(dayLabel(wizard.date, true))} · ${wizard.hour} a ${end}${prov && providers.length > 1 ? ' · con ' + esc(prov.name) : ''}</div>
                     </div>
-                    <div class="wizard-summary__title">${money(svc.price) || ''}</div>
+                    <div class="wizard-summary__title">${servicePrice(svc) || ''}</div>
                 </div>
                 ${wizard.error ? `<div class="agenda-error" role="alert">No se guardó: ${esc(wizard.error)}</div>` : ''}
                 <button type="button" class="agenda-primary" id="wizard-confirm" ${wizard.saving ? 'disabled' : ''}>${label}</button>`,

@@ -62,6 +62,8 @@ class Appointments_model extends EA_Model
     {
         $this->validate($appointment);
 
+        $this->set_price($appointment);
+
         if (empty($appointment['id'])) {
             return $this->insert($appointment);
         } else {
@@ -197,6 +199,38 @@ class Appointments_model extends EA_Model
         }
 
         return $appointments;
+    }
+
+    /**
+     * Blondor: keep the service price of the moment the appointment is booked (or its service changes), so later
+     * price changes do not rewrite the history. Without a price ($0) it stays NULL and the service price is used.
+     *
+     * @param array $appointment Associative array with the appointment data.
+     */
+    protected function set_price(array &$appointment): void
+    {
+        if (
+            empty($appointment['id_services']) ||
+            !empty($appointment['is_unavailability']) ||
+            !$this->db->field_exists('price', 'appointments')
+        ) {
+            return;
+        }
+
+        if (!empty($appointment['id'])) {
+            $current = $this->db
+                ->select('id_services')
+                ->get_where('appointments', ['id' => $appointment['id']])
+                ->row_array();
+
+            if ($current && (int) $current['id_services'] === (int) $appointment['id_services']) {
+                return;
+            }
+        }
+
+        $service = $this->db->select('price')->get_where('services', ['id' => $appointment['id_services']])->row_array();
+
+        $appointment['price'] = $service && (float) $service['price'] > 0 ? $service['price'] : null;
     }
 
     /**

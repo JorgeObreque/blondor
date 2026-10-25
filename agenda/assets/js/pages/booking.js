@@ -707,7 +707,7 @@ App.Pages.Booking = (function () {
                 </div> 
                 <div class="mb-2" ${!Number(service.price) ? 'hidden' : ''}>
                     <i class="fas fa-cash-register me-2"></i>
-                    ${Number(service.price).toFixed(2)} ${service.currency}
+                    ${service.price_type === 'from' ? 'desde ' : ''}$${Math.round(Number(service.price)).toLocaleString('es-CL')} ${service.currency}
                 </div>
             </div>     
         `);
@@ -912,7 +912,7 @@ App.Pages.Booking = (function () {
         }
 
         if (Number(service.price) > 0) {
-            additionalInfoParts.push(`${lang('price')}: ${Number(service.price).toFixed(2)} ${service.currency}`);
+            additionalInfoParts.push(`${lang('price')}: ${service.price_type === 'from' ? 'desde ' : ''}$${Math.round(Number(service.price)).toLocaleString('es-CL')} ${service.currency}`);
         }
 
         if (service.location) {
