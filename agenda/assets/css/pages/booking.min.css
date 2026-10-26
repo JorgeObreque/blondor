@@ -783,6 +783,64 @@ body.bk-body {
   color: var(--bk-danger);
 }
 
+.bk-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Clienta reconocida por su correo */
+.bk-known {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 12px 14px;
+  border-radius: var(--bk-radius);
+  background: var(--bk-blue-soft);
+  color: var(--bk-ink-2);
+  font-size: 14px;
+}
+
+.bk-known__icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 18px;
+  background: var(--bk-blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bk-known__icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 3;
+}
+
+.bk-known__text {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.bk-known__text strong {
+  font-size: 16px;
+  color: var(--bk-ink);
+}
+
+.bk-known__edit {
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  color: var(--bk-blue);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .bk-check {
   margin: 0;
   display: flex;

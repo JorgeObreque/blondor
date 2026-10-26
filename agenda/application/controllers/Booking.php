@@ -384,8 +384,20 @@ class Booking extends EA_Controller
                 return;
             }
 
+            $customer['email'] = trim((string) ($customer['email'] ?? ''));
+
             if ($this->customers_model->exists($customer)) {
                 $customer['id'] = $this->customers_model->find_record_id($customer);
+
+                // Blondor: a la clienta reconocida por su correo no se le piden de nuevo sus datos; lo que no
+                // escriba se completa con lo guardado en vez de borrarlo.
+                $stored = $this->customers_model->find($customer['id']);
+
+                foreach (['first_name', 'last_name', 'phone_number', 'address', 'city', 'zip_code'] as $field) {
+                    if (trim((string) ($customer[$field] ?? '')) === '' && !empty($stored[$field])) {
+                        $customer[$field] = $stored[$field];
+                    }
+                }
 
                 $existing_appointments = $this->appointments_model->get([
                     'id !=' => $manage_mode ? $appointment['id'] : null,
@@ -739,6 +751,39 @@ class Booking extends EA_Controller
             }
 
             json_response($unavailable_dates);
+        } catch (Throwable $e) {
+            json_exception($e);
+        }
+    }
+
+    /**
+     * Blondor: reconoce a una clienta por su correo al reservar.
+     *
+     * Responde solo si el correo ya existe y el nombre de pila (para saludarla); nunca teléfono, apellido ni
+     * otros datos, así nadie puede obtener datos de clientas probando correos.
+     */
+    public function customer_lookup(): void
+    {
+        try {
+            if (setting('disable_booking')) {
+                abort(403);
+            }
+
+            $email = trim((string) request('email'));
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !$this->customers_model->exists(['email' => $email])) {
+                json_response(['known' => false]);
+
+                return;
+            }
+
+            $customer = $this->customers_model->find($this->customers_model->find_record_id(['email' => $email]));
+            $first_name = trim(preg_split('/\s+/', trim((string) $customer['first_name']))[0] ?? '');
+
+            json_response([
+                'known' => true,
+                'first_name' => $first_name !== '' ? mb_convert_case($first_name, MB_CASE_TITLE) : null,
+            ]);
         } catch (Throwable $e) {
             json_exception($e);
         }

@@ -95,7 +95,11 @@ App.Pages.Booking = (function () {
         loadingMonths: false,
         saving: false,
         deleteArmed: false,
+        known: null, // {email, firstName}: clienta reconocida por su correo
+        identityOpen: false,
     };
+
+    let lookupTimer = null;
 
     let toastTimer = null;
 
@@ -265,6 +269,7 @@ App.Pages.Booking = (function () {
             renderTimeStep();
         } else {
             renderSummary();
+            lookupCustomer();
         }
 
         renderBar();
@@ -707,6 +712,53 @@ App.Pages.Booking = (function () {
         }
     }
 
+    /**
+     * Recognize the customer by her email: greet her and hide the data we already have (Fresha, Booksy).
+     */
+    async function lookupCustomer() {
+        const email = String($('#email').val() || '').trim().toLowerCase();
+
+        if (manageMode || !$('#email').length) {
+            return;
+        }
+
+        if (!App.Utils.Validation.email(email)) {
+            applyKnown(null);
+            return;
+        }
+
+        if (state.known && state.known.email === email) {
+            return;
+        }
+
+        try {
+            const response = await App.Http.Booking.lookupCustomer(email);
+
+            if (String($('#email').val() || '').trim().toLowerCase() !== email) {
+                return; // The email changed while asking.
+            }
+
+            applyKnown(response.known ? {email, firstName: response.first_name} : null);
+        } catch (error) {
+            applyKnown(null); // Without the lookup the form simply asks for everything.
+        }
+    }
+
+    function applyKnown(known) {
+        const changed = (state.known && state.known.email) !== (known && known.email);
+
+        state.known = known;
+
+        if (changed) {
+            state.identityOpen = false;
+        }
+
+        $('#bk-known').prop('hidden', !known);
+        $('#bk-known-hello').text(known && known.firstName ? '¡Hola, ' + known.firstName + '!' : '¡Hola de nuevo!');
+        $('#bk-known-edit').prop('hidden', state.identityOpen);
+        $('#bk-identity').prop('hidden', Boolean(known) && !state.identityOpen);
+    }
+
     function setFieldError($input, message) {
         const $error = $input.closest('.bk-field').find('.bk-field__error');
 
@@ -720,7 +772,7 @@ App.Pages.Booking = (function () {
         $form.find('input, textarea').each((index, el) => {
             const $input = $(el);
 
-            if (el.type === 'checkbox' || el.id === 'captcha-text') {
+            if (el.type === 'checkbox' || el.id === 'captcha-text' || $input.closest('[hidden]').length) {
                 return;
             }
 
@@ -788,7 +840,9 @@ App.Pages.Booking = (function () {
     function postData() {
         const item = service(state.serviceId);
         const start = moment(state.date + ' ' + state.time, 'YYYY-MM-DD HH:mm');
-        const value = (id) => String($('#' + id).val() ?? '').trim();
+        const identityHidden = $('#bk-identity').prop('hidden');
+        const value = (id) =>
+            identityHidden && $('#bk-identity #' + id).length ? '' : String($('#' + id).val() ?? '').trim();
 
         const data = {
             customer: {
@@ -850,9 +904,15 @@ App.Pages.Booking = (function () {
 
             if (!manageMode) {
                 const remember = $('#bk-remember').prop('checked');
-                const {first_name, last_name, phone_number, email} = data.customer;
+                const previous = readSavedCustomer() || {};
+                const saved = {};
 
-                writeSavedCustomer(remember ? {first_name, last_name, phone_number, email} : null);
+                // Fields left hidden for a recognized customer go blank to the server: keep what was saved.
+                ['first_name', 'last_name', 'phone_number', 'email'].forEach((key) => {
+                    saved[key] = data.customer[key] || previous[key] || '';
+                });
+
+                writeSavedCustomer(remember ? saved : null);
             }
 
             window.location.href = App.Utils.Url.siteUrl('booking_confirmation/of/' + response.appointment_hash);
@@ -998,6 +1058,19 @@ App.Pages.Booking = (function () {
             if ($(event.target).hasClass('is-invalid')) {
                 setFieldError($(event.target), '');
             }
+        });
+
+        $('#email').on('input', () => {
+            clearTimeout(lookupTimer);
+            lookupTimer = setTimeout(lookupCustomer, 500);
+        });
+
+        $('#email').on('change blur', lookupCustomer);
+
+        $('#bk-known-edit').on('click', () => {
+            state.identityOpen = true;
+            applyKnown(state.known);
+            $('#first-name').trigger('focus');
         });
 
         $('#bk-captcha-refresh').on('click', refreshCaptcha);

@@ -130,6 +130,21 @@ App.Http.Booking = (function () {
     }
 
     /**
+     * Whether the email belongs to a known customer, and her first name to greet her.
+     *
+     * @param {String} email
+     *
+     * @return {Promise<Object>} {known, first_name}
+     */
+    function lookupCustomer(email) {
+        return request({
+            url: App.Utils.Url.siteUrl('booking/customer_lookup'),
+            method: 'POST',
+            data: {csrf_token: vars('csrf_token'), email},
+        });
+    }
+
+    /**
      * Delete the personal information of the customer (manage mode).
      *
      * @param {String} customerToken
@@ -151,6 +166,7 @@ App.Http.Booking = (function () {
         getAvailableHours,
         getUnavailableDates,
         registerAppointment,
+        lookupCustomer,
         deletePersonalInformation,
     };
 })();
