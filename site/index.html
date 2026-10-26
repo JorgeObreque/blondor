@@ -1,257 +1,181 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es-CL">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blondor Chile</title>
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="./includes/blondor.css?v=2">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg pt-5" style="padding-left: 5vw; padding-right: 5vw;">
-        <a class="navbar-brand" href="#"><img src="./includes/PNG/logo1.png" alt=""></a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#MenuTablet" aria-controls="MenuTablet" aria-expanded="false" aria-label="Toggle navigation">
-            <div class="row">
-                <input type="checkbox" id="hamburger">
-                <label for="hamburger" class="hamburger">
-                    <span class="line"></span>
-                    <span class="line"></span>
-                    <span class="line"></span>
-                </label>
-            </div>
-        </button>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Blondor · Peluquería en Las Condes · Color, mechas y cortes</title>
+    <meta name="description" content="Peluquería en Av. Apoquindo 4900, Las Condes. Color, mechas, balayage, cortes y tratamientos con precios a la vista. Reserva tu hora online en un minuto.">
+    <meta name="theme-color" content="#0f5289">
+    <link rel="canonical" href="https://blondor.cl/">
+    <link rel="icon" type="image/png" href="assets/img/blondor-mark.png">
 
-        <div class="collapse navbar-collapse" >
-            <ul class="navbar-nav ml-auto">
-                <li class="nav-item active">
-                <a class="nav-link" href="#inicio">INICIO <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item">
-                <a class="nav-link" href="#nosotros">NOSOTROS</a>
-                </li>
-                <li class="nav-item text-center">
-                    <a class="nav-link" href="#productos-servicios">
-                        <div>PRODUCTOS & <br>SERVICIOS </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#formulario">CONTACTO</a>
-                </li>
-            </ul>
-        </div>   
-        
-        <div class="collapse navbar-collapse" id="MenuTablet" style="background-color: #015288; opacity: .9;">
-            <ul class="navbar-nav ml-auto text-center">
-                <li class="nav-item active">
-                <a class="nav-link" href="#inicio">INICIO <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item">
-                <a class="nav-link" href="#nosotros">NOSOTROS</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#productos-servicios">
-                        <div>PRODUCTOS & <br>SERVICIOS </div>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#formulario">CONTACTO</a>
-                </li>
-            </ul>
-        </div> 
-    </nav>
-    <section id="inicio" class="inicio" style="padding-left: 5vw; padding-right: 5vw; margin-bottom: -40px;">
-        <div class="content ml-auto">
-            <div class="row">
-                <div class="col-md-12 ">
-                    <p class="bienvenidos-text" style=" font-style: italic; font-weight: lighter;">¡BIENVENIDOS A BLONDOR!</p>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-12">
-                    <p class="estilo-text" style=" font-family: stangith;">Transformamos tu estilo <br> con elegancia</p>
-                </div>
-            </div>                
-        </div>        
-    </section>
-    <section class="nosotros position-absolute" id="nosotros">
-        <div class="row" id="nosotros_row">
-            <div class="col-12 text-center">
-                <div class="titulo">Nosotros</div>
-                <div class="linea-estrella">
-                    <hr>
-                    <div class="star"></div>
-                    <hr>
-                </div>
-                <p>
-                    <b>Somos un salón de belleza que entrega una amplia variedad
-                        de servicios y productos de alta calidad</b> a sus
-                    clientes, con un enfoque <b>profesional en el ámbito de
-                        la estética</b> y procurando que cada cliente se sienta
-                    satisfecho en la <b>experiencia de su cuidado personal.</b>
-                </p>
-            </div>
-        </div>
-    </section>
-    <div class="mensaje-container" id="mensaje-container">
-        <div class="mensaje">
-            <hr>
-            <h1>"Tu belleza, nuestra pasi&ograve;n."</h1>
-            <hr>
-        </div>
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="es_CL">
+    <meta property="og:site_name" content="Blondor">
+    <meta property="og:title" content="Blondor · Peluquería en Las Condes">
+    <meta property="og:description" content="Color, mechas y cortes en Apoquindo 4900. Reserva tu hora online.">
+    <meta property="og:url" content="https://blondor.cl/">
+    <meta property="og:image" content="https://blondor.cl/assets/img/hero.webp">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Manrope:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="assets/css/site.css?v=1">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "HairSalon",
+        "name": "Blondor",
+        "url": "https://blondor.cl/",
+        "image": "https://blondor.cl/assets/img/hero.webp",
+        "telephone": "+56966756614",
+        "email": "peluqueria@blondor.cl",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Av. Apoquindo 4900, local 53",
+            "addressLocality": "Las Condes",
+            "addressRegion": "Región Metropolitana",
+            "addressCountry": "CL"
+        },
+        "sameAs": ["https://www.instagram.com/blondorpeluqueria"],
+        "potentialAction": {
+            "@type": "ReserveAction",
+            "target": "https://agenda.blondor.cl/index.php/booking"
+        }
+    }
+    </script>
+</head>
+<body data-agenda="https://agenda.blondor.cl">
+
+<header class="top">
+    <div class="wrap">
+        <a class="brand" href="#inicio" aria-label="Blondor, inicio"><img src="assets/img/blondor-mark.png" alt="" width="28" height="37"><span>BLONDOR</span></a>
+        <nav class="nav" aria-label="Secciones">
+            <a href="#servicios">Servicios</a>
+            <a href="#trabajos">Trabajos</a>
+            <a href="#equipo">Quién te atiende</a>
+            <a href="#llegar">Cómo llegar</a>
+        </nav>
+        <a class="btn btn--white" data-book href="https://agenda.blondor.cl/index.php/booking">Reservar</a>
     </div>
-    <section class="productos-servicios" id="productos-servicios">
-        <div class="row">
-            <div class="col-lg-6 col-md-12">
-                <div class="row row-producto-texto">
-                    <div class="col-12 titulo">
-                        <h1>Productos &  <br>Servicios</h1>
-                    </div>
-                    <div class="col-12 texto">
-                        <p>
-                            Ofrecemos una amplia variedad de servicios que 
-                        van desde corte de cabello para niño, varón y 
-                        dama, técnicas de coloración, masajes capilares, 
-                        tratamientos faciales, y hasta manicure. También, 
-                        vende productos de peluquería pertenecientes a 
-                        alta gama, las marcas específicas son: Loreal, 
-                        Wella, Farmavita y Alterego
-                        </p>
-                    </div>    
+</header>
+
+<main id="inicio">
+    <section class="hero band">
+        <div class="wrap">
+            <div class="hero__photo"><img src="assets/img/hero.webp" alt="Clienta con el pelo largo castaño y ondas suaves" width="640" height="729" fetchpriority="high"></div>
+            <div class="hero__text">
+                <span class="eyebrow">Peluquería · Apoquindo 4900</span>
+                <h1>Color, mechas y cortes <em>en Las Condes</em></h1>
+                <p class="hero__addr">Av. Apoquindo 4900, local 53, Las Condes</p>
+                <span class="status"><span class="status__dot"></span><span>Atención solo con hora reservada</span></span>
+                <div class="hero__ctas">
+                    <a class="btn btn--white" data-book href="https://agenda.blondor.cl/index.php/booking">Reservar hora</a>
+                    <a class="btn btn--outline" data-wa href="https://wa.me/56966756614?text=Hola%20Blondor%2C%20quiero%20reservar%20una%20hora" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.6-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>
+                        Escribir por WhatsApp
+                    </a>
                 </div>
+                <div class="hero__facts"><span>Reserva online en 1 minuto</span><span>L'Oréal · Wella · Farmavita</span><span>Precios a la vista</span></div>
             </div>
-            <div class="col-lg-6 col-md-12" >
-                <div class="row row-1" >
-                </div>
-                <div class="row row-2" >
-                    <div class="col-lg-4 col-md-4 col-sm-12 text-right">
-                        <img id="image1"  alt="">
-                    </div>
-                    <div class="col-lg-4 col-md-4 col-sm-12 text-center">
-                        <img id="image2"  alt="">
-                    </div>
-                    <div class="col-lg-4 col-md-4 col-sm-12">
-                        <img id="image3"  alt="">
-                    </div>
+        </div>
+    </section>
+
+    <!-- La promo se completa con el precio de la agenda; si no hay promoción activa, se oculta. -->
+    <section class="promo" id="promo" aria-labelledby="promo-title">
+        <div class="wrap">
+            <div class="promo__card">
+                <span class="promo__tag">Promoción</span>
+                <h2 id="promo-title">Corte, masaje capilar y peinado</h2>
+                <div class="promo__price"><strong id="promo-price">$19.990</strong></div>
+                <p class="promo__fine" id="promo-fine">Dura 1 h 20 min.</p>
+                <a class="btn btn--blue" id="promo-book" data-book="62" href="https://agenda.blondor.cl/index.php/booking?service=62">Reservar la promo</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="servicios" aria-labelledby="svc-title">
+        <div class="wrap">
+            <span class="eyebrow">Servicios y precios</span>
+            <h2 id="svc-title">Elige tu servicio y reserva</h2>
+            <p class="lead">«Desde» quiere decir que el precio final depende del largo y del volumen del pelo. Te lo confirmamos antes de empezar.</p>
+            <div class="tabs" role="tablist" aria-label="Familias de servicios" id="tabs"></div>
+            <div id="panels"><div class="svc-loading" aria-label="Cargando servicios"></div></div>
+        </div>
+    </section>
+
+    <section class="section plain" id="trabajos" aria-labelledby="work-title">
+        <div class="wrap">
+            <span class="eyebrow">Trabajos</span>
+            <h2 id="work-title">Lo que hacemos en el salón</h2>
+            <div class="gallery">
+                <figure><div class="gallery__img"><img src="assets/img/color.webp" alt="Mechas con papel en pelo corto castaño" width="900" height="600" loading="lazy"></div><figcaption>Mechas con papel</figcaption></figure>
+                <figure><div class="gallery__img"><img src="assets/img/mechas.webp" alt="Pelo largo con babylights rubias" width="310" height="460" loading="lazy"></div><figcaption>Babylights</figcaption></figure>
+                <figure><div class="gallery__img"><img src="assets/img/brushing.webp" alt="Estilista haciendo brushing con cepillo redondo" width="900" height="525" loading="lazy"></div><figcaption>Brushing</figcaption></figure>
+            </div>
+        </div>
+    </section>
+
+    <section class="section plain" id="equipo" aria-labelledby="team-title" style="padding-top: 0">
+        <div class="wrap">
+            <div class="owner">
+                <div class="owner__photo" aria-hidden="true">M</div>
+                <div class="owner__text">
+                    <span class="eyebrow">Quién te atiende</span>
+                    <h2 id="team-title">Te atiende Mina</h2>
+                    <p class="owner__role">Guillermina, dueña y estilista de Blondor</p>
+                    <p class="lead">En Blondor te atiende siempre la misma persona, de principio a fin: el diagnóstico, el color, el corte y el peinado. Mina conoce tu historial y cómo quedó tu último color.</p>
+                    <a class="btn btn--blue" data-book href="https://agenda.blondor.cl/index.php/booking">Reservar con Mina</a>
                 </div>
             </div>
         </div>
     </section>
-    <section class="iconos-servicios" style="padding-top: 100px;">
-        <div class="mensaje2-iconos row py-4" style="background-color: white; width: 100%; color: black; z-index: 100;">
-            <div class="col-md-4 col-lg-4 col-sm-4 col-xs-4 text-center icono-servicio-text">
-                <img class="img-fluid" src="./includes/PNG/icono1.png" alt="" class="img-fluid">
-                <div class="img-text">Corte de Cabello</div>
-            </div>
-            <div class="col-md-4 col-lg-4 col-sm-4 col-xs-4 text-center icono-servicio-text">
-                <img class="img-fluid" src="./includes/PNG/icono2.png" alt="" class="img-fluid">
-                <div class="img-text">Skincare</div>
-            </div>
-            <div class="col-md-4 col-lg-4 col-sm-4 col-xs-4 text-center icono-servicio-text">
-                <img class="img-fluid" src="./includes/PNG/icono3.png" alt="" class="img-fluid">
-                <div class="img-text">Manicure</div>
+
+    <section class="section" id="llegar" aria-labelledby="visit-title">
+        <div class="wrap">
+            <span class="eyebrow">Cómo llegar</span>
+            <h2 id="visit-title">Te esperamos en Apoquindo</h2>
+            <div class="visit">
+                <div class="card">
+                    <h3>Dirección</h3>
+                    <p class="addr">Av. Apoquindo 4900, local 53</p>
+                    <p>Las Condes. A pasos del Metro Escuela Militar (Línea 1).</p>
+                    <a class="btn btn--line" href="https://maps.google.com/?q=Av.+Apoquindo+4900,+Las+Condes" target="_blank" rel="noopener">Abrir en Google Maps</a>
+                </div>
+                <div class="card">
+                    <h3>Horario</h3>
+                    <p class="addr">Solo con hora reservada</p>
+                    <p>Mina atiende con cita, sin horario fijo de atención. En la agenda ves los días y horas libres al momento.</p>
+                    <a class="btn btn--blue" data-book href="https://agenda.blondor.cl/index.php/booking">Ver horas disponibles</a>
+                </div>
             </div>
         </div>
     </section>
-    <section class="mensaje2-container" style="height: 400px; background-color: #015288; align-items: center; justify-content: center; display:flex;">
-        <div style="color: azure; font-style: italic; font-size: 3.5vw; font-weight: lighter;">
-            ...Donde cada detalle <b>importa</b> <br>
-        y cada cliente es <b>especial</b>...
-        </div>
-    </section>
-    <section class="grilla-imagenes"></section>
-    <section class="banner-agenda-hora">
+</main>
+
+<footer class="foot band--deep">
+    <div class="wrap">
         <div>
-            <p class="mx-5 msg1" style="color: azure; font-size: 2vw; font-style: italic; font-weight: lighter;">AGENDA TU HORA Y</p> 
-            <p class="mx-5 msg2" style="color: azure; font-size: 6vw; font-family: stangith;" >Contáctanos</p>
+            <a class="brand" href="#inicio"><img src="assets/img/blondor-mark.png" alt="" width="28" height="37"><span>BLONDOR</span></a>
+            <p style="margin-top: 8px">Belleza, cosmética y cuidado personal.</p>
         </div>
-    </section>
-    <section class="formulario" id="formulario">
-        <div class="row">
-            <div class="col-md-6 col-lg-6 col-sm-12 col-xs-12 formulario-datos">
-                <div class="container my-5">
-                    <form action="">
-                        <div class="mb-3">
-                            <label for="nombre-form" class="form-label">*NOMBRE</label>
-                            <input type="text" class="form-control" id="nombre-form" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="correo-form" class="form-label">*CORREO</label>
-                            <input type="email" class="form-control" id="correo-form" aria-describedby="emailHelp" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="telefono-form" class="form-label">*TELÉFONO</label>
-                            <input type="text" class="form-control" id="telefono-form" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="mensaje-form" class="form-label">*MENSAJE</label>
-                            <textarea type="text" rows="5" class="form-control" id="mensaje-form"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <button type="submit" class="btn btn-primary py-2 px-4" id="enviar-form">ENVIAR</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-6 col-sm-12 col-xs-12 text-center" style="min-height: 300px;">
-                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3330.4513389336166!2d-70.58049762341811!3d-33.411475595518915!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9662cf21c6933155%3A0x30a077510bff2b96!2sAv.%20Apoquindo%204900%2C%207560973%20Las%20Condes%2C%20Regi%C3%B3n%20Metropolitana!5e0!3m2!1ses-419!2scl!4v1724607842182!5m2!1ses-419!2scl" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-            </div>
-        </div>
-    </section>
-    <section class="footer">
-        <div class="container">
-            <div class="row py-4">
-                <div class="col-md-4 col-lg-4">
-                    <div class="row my-4">
-                        <div class="col-12">
-                            <img src="includes/PNG/wsp.png" alt="">
-                           <numero style="font-size: 20px; color: azure; font-style: italic;">+56 9 6675 6614</numero> 
-                        </div>
-                    </div>
-                    <div class="row my-4">
-                        <div class="col-12">
-                            <img src="includes/PNG/correo.png" alt="">
-                            <correo style="font-size: 20px; color: azure; font-style: italic;">peluqueria@blondor.cl</correo>
-                        </div>
-                    </div>                    
-                </div>
-                <div class="col-md-4 col-lg-4">
-                    <div class="row my-4">
-                        <div class="col-12">
-                            <img src="includes/PNG/facebook.png" alt="">
-                            <facebook style="font-size: 20px; color: azure; font-style: italic;">blondorPeluqueria</facebook>
-                        </div>
-                    </div>
-                    <div class="row my-4">
-                        <div class="col-12">
-                            <img src="includes/PNG/instagram.png" alt="">
-                            <instagram style="font-size: 20px; color: azure; font-style: italic;"><a style="color: azure;" href="https://www.instagram.com/blondorpeluqueria?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==">@blondorpeluqueria</a></instagram>                             
-                        </div>
-                    </div>  
-                </div>
-                <div class="col-md-4 col-lg-4 text-center">
-                    <p style="color: azure; font-style: italic; font-weight: lighter; font-size: 18px; ">Apoquindo 4900 Local 53</p>
-                    <img src="includes/PNG/logo final.png" alt="">
-                </div>
-                <div class="col-md-4 col-lg-4 text-left" style="color:grey">
-                   Revisa <a href="./politicas.html"> AQUÍ</a> nuestras Políticas
-                </div>
-            </div>
-        </div>
-    </section>
-    <div class="whatsapp-container">
-        <a href="https://wa.me/+56966756614" class="whatsapp-float" target="_blank" id="whatsappIcon">
-            <img src="./includes/PNG/whatsapp.png" alt="WhatsApp" width="100" height="100">
-        </a>
-        <div class="whatsapp-banner">
-            <a style="color: azure;" href="https://wa.me/+56966756614" class="whatsapp-float" target="_blank" id="whatsappIcon">
-                ¡Agenda aquí!
-            </a>    
+        <div class="foot__links">
+            <a data-wa href="https://wa.me/56966756614?text=Hola%20Blondor%2C%20quiero%20reservar%20una%20hora" target="_blank" rel="noopener">WhatsApp +56 9 6675 6614</a>
+            <a href="https://www.instagram.com/blondorpeluqueria" target="_blank" rel="noopener">Instagram</a>
+            <a href="politicas.html">Políticas</a>
         </div>
     </div>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="./includes/blondor.js"></script>
+</footer>
+
+<div class="dock" aria-label="Acciones rápidas">
+    <a class="btn btn--white" data-book href="https://agenda.blondor.cl/index.php/booking">Reservar hora</a>
+    <a class="btn btn--wa" data-wa href="https://wa.me/56966756614?text=Hola%20Blondor%2C%20quiero%20reservar%20una%20hora" target="_blank" rel="noopener" aria-label="WhatsApp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.6-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>
+        WhatsApp
+    </a>
+</div>
+
+<script src="assets/js/site.js?v=1" defer></script>
 </body>
 </html>

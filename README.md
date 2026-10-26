@@ -66,6 +66,10 @@ Fuera de git en el servidor: `agenda/config.php`, `agenda/.well-known`, `agenda/
 
 ## Notas
 
+- El sitio lee servicios y precios de la agenda (`agenda.blondor.cl/index.php/public_catalog`, solo lectura):
+  cambiar un precio en `/precios` lo cambia también en blondor.cl. Los orígenes permitidos están en
+  `agenda/application/controllers/Public_catalog.php`.
+
 - `agenda/config.php` es la configuración local; la de prod queda en `agenda/config.prod.php` (no versionada).
 - Con `DEBUG_MODE = false` la app carga los `.min.js`/`.min.css`: `scripts/build_min.sh` los regenera.
   Al cambiar assets, sube `cache_busting_token` en `agenda/application/config/app.php` para que los
