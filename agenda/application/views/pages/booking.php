@@ -110,27 +110,12 @@ $manage_mode = vars('manage_mode');
 
             <form id="bk-form" class="bk-form" novalidate>
                 <p class="bk-label">Tus datos</p>
-                <?php $field('email', 'email', 'Correo', 'email', 'email', 120, 'Si ya viniste, te reconocemos'); ?>
-
-                <!-- Clienta reconocida por su correo: saludo y sus datos guardados (JS). -->
-                <div class="bk-known" id="bk-known" role="status" hidden>
-                    <span class="bk-known__icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>
-                    </span>
-                    <span class="bk-known__text">
-                        <strong id="bk-known-hello"></strong>
-                        <span>Ya tenemos tus datos, no necesitas escribirlos otra vez.</span>
-                    </span>
-                    <button type="button" class="bk-known__edit" id="bk-known-edit">Actualizar mis datos</button>
+                <div class="bk-form__row">
+                    <?php $field('first-name', 'first_name', 'Nombre', 'text', 'given-name', 100); ?>
+                    <?php $field('last-name', 'last_name', 'Apellido', 'text', 'family-name', 120); ?>
                 </div>
-
-                <div class="bk-identity" id="bk-identity">
-                    <div class="bk-form__row">
-                        <?php $field('first-name', 'first_name', 'Nombre', 'text', 'given-name', 100); ?>
-                        <?php $field('last-name', 'last_name', 'Apellido', 'text', 'family-name', 120); ?>
-                    </div>
-                    <?php $field('phone-number', 'phone_number', 'Teléfono (WhatsApp)', 'tel', 'tel', 60, '+56 9 1234 5678'); ?>
-                </div>
+                <?php $field('phone-number', 'phone_number', 'Teléfono (WhatsApp)', 'tel', 'tel', 60, '+56 9 1234 5678'); ?>
+                <?php $field('email', 'email', 'Correo', 'email', 'email', 120, 'Para enviarte la confirmación'); ?>
                 <?php $field('address', 'address', 'Dirección', 'text', 'street-address', 120); ?>
                 <?php $field('city', 'city', 'Comuna', 'text', 'address-level2', 120); ?>
                 <?php $field('zip-code', 'zip_code', 'Código postal', 'text', 'postal-code', 120); ?>
