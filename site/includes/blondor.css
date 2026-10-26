@@ -1,0 +1,553 @@
+/* fonts */
+
+@font-face {
+    font-family: stangith;
+    src: url(./stangith.ttf);
+}
+
+/* CSS     */
+
+body {
+    margin: 0;
+    padding: 0;
+}
+html {
+    scroll-behavior: smooth;
+}
+
+.row{
+    margin-left: 0;
+    margin-right: 0;
+}
+.navbar {
+    position: absolute;
+    width: 100%;
+    z-index: 2; /* Asegura que el navbar esté por encima del contenido */
+}
+.inicio {
+    position: relative;
+    height: 100vh; /* Asegura que la imagen cubra toda la pantalla */
+    background: url('./PNG/imagen1.png') no-repeat center center/cover; /* Imagen de fondo */
+    z-index: 1; /* Asegura que la sección esté detrás del navbar */
+}
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    
+    z-index: 1;
+}
+.content {
+    position: relative;
+    z-index: 2;
+    color: white;
+    text-align: left;
+    top: 45%;
+    transform: translateY(-50%);
+}
+.nav-item a{
+    color: white;
+    font-size: larger;
+    text-shadow: grey 1px 0 10px;
+}
+
+.inicio{
+    padding-left: 50px;
+}
+
+
+.nosotros{
+    z-index: 999; 
+    width: 100%;
+}
+
+.nosotros .row{
+    background-color: #FFFCE9; 
+    margin-right: 5%; 
+    margin-left: 5%;
+    border-radius: 10px;
+    padding: 3% 15% 3% 15%;
+}
+
+
+
+
+.star {
+    position: relative;
+    width: 13px; /* Ajusta el tamaño según sea necesario */
+    height: 13px; /* Ajusta el tamaño según sea necesario */
+    background-color: #015288; /* Color de la estrella */
+    clip-path: polygon(
+        50% 0%,
+        65% 35%,
+        100% 50%,
+        65% 65%,
+        50% 100%,
+        35% 65%,
+        0% 50%,
+        35% 35%
+    );
+}
+
+.nosotros .linea-estrella{
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+}
+
+.mensaje-container{
+    height: 500px; 
+    background-color: #015288; 
+    display: flex; 
+    justify-content: center; 
+    align-items: flex-end;
+}
+
+.mensaje{
+    text-align: center;
+    color: white;
+    padding-bottom: 15px;
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    font-family: stangith;
+    
+    
+}
+
+/* PRODUCTOS Y SERVICIOS */
+
+.productos-servicios .titulo h1{
+    font-family: stangith;
+    color: #015288;
+    font-size: 4rem;
+}
+
+.productos-servicios .texto p{
+    color: #015288;
+    font-size: 1rem;
+    font-weight: lighter;
+    text-align: justify;
+}
+
+
+.productos-servicios .row-1 {
+    background-color: #FFFCE9;
+    border-top-left-radius: 20px;
+    height: 400px;
+    position: relative; /* Para ser el contenedor de referencia para el posicionamiento absoluto de row-2 */
+    margin-top: 100px;
+}
+.productos-servicios .row-2 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px; /* Para dar espacio interno y no pegar las imágenes al borde */
+    z-index: 1; /* Asegura que row-2 quede encima de row-1 */
+    
+}
+
+.productos-servicios .row-producto-texto{
+    margin-top: 100px;
+}
+
+.productos-servicios .row-2 img {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Para dar un efecto de elevación a las imágenes */
+}
+
+/*INICIO ICONOS SERVICIOS* >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+.iconos-servicios{
+    width: 100%;
+    height: 400px;
+    background-image: url('./PNG/imagen5.jpg');
+    background-attachment: fixed;
+}
+/* .iconos-servicios img{
+    width: 100%;
+    height: 600px;
+    
+} */
+
+.iconos-servicios .icono-servicio-text{
+    color: #015288;
+    font-size: 35px;
+    font-weight: 600;
+}
+/*FIN ICONOS SERVICIOS* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<*/
+
+
+.banner-agenda-hora {
+    background: 
+    linear-gradient(to right, rgba(0, 51, 102, 1), rgba(0, 102, 204, 0)), /* Gradiente azulado de izquierda a derecha */
+        url('./PNG/imagen10.jpg') no-repeat center center/cover;
+    
+    background-blend-mode: overlay; /* Mezcla el gradiente con la imagen */
+    height: 600px; /* Asegura que la imagen cubra toda la pantalla */
+    align-items: center; 
+    justify-content: left; 
+    display:flex;
+}
+
+
+/*
+INICIO FORMULARIO >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+*/
+.formulario{
+    height: auto;
+}
+
+.formulario .formulario-datos{
+    background-color: #FFFCE9; 
+}
+
+.formulario label{
+    color: #015288;
+    font-weight: 600;
+    font-size: 20px;
+}
+
+.formulario input ,
+.formulario textarea{
+    border-radius: 15px;
+    background-color: #FFFCE9;
+}
+
+.formulario button{
+    background-color: #015288 !important;
+    border-radius: 12px !important;
+}
+
+.formulario iframe{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    min-height: 300px;
+}
+/*FIN FORMULARIO >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+
+
+
+/*INICIO FOOTER >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+.footer{
+    background-color: #015288;
+    height: auto;
+}
+
+/*FIN FOOTER <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<*/
+
+
+
+/*INICIO ICONO HAMBURGESA >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+label.hamburger {
+    display: block;
+    /* background: #fff; */
+    width: 40px; /* less width = square hamburger */
+    height: 60px;
+    position: relative;
+    cursor: pointer;
+ }
+ 
+ input#hamburger {
+   display:none
+ }
+ 
+ .line {
+    position: absolute;
+    height: 6px;
+    width: 100%;
+    background: #015288;
+    transition: 0.5s;
+ }
+ /* steps of 12 are optional, could also be 10, 13 etc */
+ .line:nth-child(1) { top: 12px; }
+ .line:nth-child(2) { top: 24px; }
+ .line:nth-child(3) { top: 36px; }
+ 
+ /* translateY must be same as */
+ #hamburger:checked + .hamburger .line:nth-child(1){
+    transform: translateY(12px) rotate(-45deg);
+ }
+ 
+ #hamburger:checked + .hamburger .line:nth-child(2){
+    opacity:0;
+ }
+ 
+ #hamburger:checked + .hamburger .line:nth-child(3){
+    transform: translateY(-12px) rotate(45deg);
+ }
+/*FIN ICONO HAMBURGESA* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<</
+
+
+/*INICIO ICONO WSP*/
+.whatsapp-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    z-index: 1000;
+}
+
+.whatsapp-float {
+    width: 60px;
+    height: 60px;
+    animation: saltoConstante 1s ease-in-out infinite;
+}
+
+.whatsapp-float img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.whatsapp-banner {
+    background-color: #25D366; /* Color de fondo del banner (verde de WhatsApp) */
+    color: white;
+    padding: 10px 15px;
+    border-radius: 20px;
+    margin-left: 10px;
+    font-size: 16px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes saltoConstante {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-20px);
+    }
+}
+/*FIN ICONO WSP*/
+
+/* Media  celular ---------------------------------------*/ 
+
+@media (max-width: 600px) {
+    .inicio .bienvenidos-text{
+        font-size: 1rem;
+    }
+    
+    .inicio .estilo-text{
+        font-size: 2rem;
+    }
+
+    
+
+    /* nosotros */
+    .nosotros .row .titulo{
+        font-family: stangith;
+        color: #015288;
+        margin: 0;
+        padding: 0;
+        font-size: 250%;
+    
+    }
+    
+    .nosotros .row p{
+        color: #015288;
+        font-size: 90%;
+        font-style: italic;
+        font-weight: lighter;
+    }
+    
+    
+    .nosotros hr {
+        height: 0.1px;
+        background-color:#015288;
+        z-index: 9999;
+        width: 120px;
+        padding-left:  3px;
+        padding-right:  3px;
+        margin-left: 3px;
+        margin-right: 3px;
+    }
+
+    /* mensaje */
+
+    .mensaje h1{
+        font-size:  105%;
+    }
+    
+    .mensaje hr {
+        height: 0.2px;
+        background-color:white;
+        z-index: 9999;
+        padding-left:  10px;
+        padding-right: 10px;
+        margin-left: 10px;
+        margin-right: 10px;
+        width: 80px;
+    }
+
+    /* PRODUCTOS Y SERVICIOS */
+    .productos-servicios{
+        padding: 5px;
+    }
+
+    /*ICONOS SERVICIOS*/
+
+    .iconos-servicios img{
+        height: 20%;
+        width: 20%;
+    }
+
+    .iconos-servicios .img-text{
+        font-size: 40%;
+    }
+
+    .banner-agenda-hora  .msg1{
+        font-size: 40px !important;
+        margin-left: 10px !important;
+    }
+
+    .banner-agenda-hora  .msg2{
+        font-size: 70px !important;
+        margin-left: 10px !important;
+    }
+
+}
+
+/* notebook & tablet --------------------------------------------------------------------*/
+
+@media(min-width: 610px) and (max-width: 1441px){
+    /* INICIO */
+    .inicio .bienvenidos-text{
+        font-size: 2rem;
+    }
+
+    .inicio .estilo-text{
+        font-size: 4rem;
+
+    }
+
+    /* NOSOTROS */
+    .nosotros .row .titulo{
+        font-family: stangith;
+        color: #015288;
+        margin: 0;
+        padding: 0;
+        font-size: 400%;
+    
+    }
+    
+    .nosotros .row p{
+        color: #015288;
+        font-size: 120%;
+        font-style: italic;
+        font-weight: lighter;
+    }
+    
+    
+    .nosotros hr {
+        height: 0.1px;
+        background-color:#015288;
+        z-index: 9999;
+        width: 120px;
+        padding-left:  3px;
+        padding-right:  3px;
+        margin-left: 3px;
+        margin-right: 3px;
+    }
+    
+    .mensaje{
+        margin-top: 1000px;
+    }
+
+    /* PRODUCTOS Y SERVICIOS */
+    .productos-servicios{
+        padding: 10px;
+    }
+}
+
+/* Media  PC-------------------------------------------------------------*/ 
+@media (min-width: 1442px) {
+
+    /* INICIO */
+    .inicio .bienvenidos-text{
+        font-size: 2rem;
+    }
+
+    .inicio .estilo-text{
+        font-size: 4rem;
+
+    }
+
+
+    /* nosotros */
+    .nosotros .row .titulo{
+        font-family: stangith;
+        color: #015288;
+        margin: 0;
+        padding: 0;
+        font-size: 400%;
+    
+    }
+    
+    .nosotros .row p{
+        color: #015288;
+        font-size: 150%;
+        font-style: italic;
+        font-weight: lighter;
+    }
+    
+    
+    .nosotros hr {
+        height: 0.1px;
+        background-color:#015288;
+        z-index: 9999;
+        width: 120px;
+        padding-left:  3px;
+        padding-right:  3px;
+        margin-left: 3px;
+        margin-right: 3px;
+    }
+    
+    /* mensaje */
+
+    .mensaje h1{
+        font-size:  3rem;
+    }
+    
+    .mensaje hr {
+        height: 0.5px;
+        background-color:white;
+        z-index: 9999;
+        padding-left:  10px;
+        padding-right: 10px;
+        margin-left: 10px;
+        margin-right: 10px;
+        width: 600px;
+    }
+
+    /* PRODUCTOS Y SERVICIOS */
+    .productos-servicios{
+        padding: 50px;
+    }
+
+}
+
+
+
+/* Estilos para el menú en pantallas grandes */
+@media (min-width: 992px) {
+    #MenuTablet{
+        display: none !important;
+    }
+}
+
+/* Estilos para el menú en pantallas pequeñas */
+/* @media (max-width: 991.98px) {
+    #MenuTablet{
+        display: block !important;
+    }
+} */

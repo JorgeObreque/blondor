@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blondor Chile</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./includes/blondor.css?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg pt-5" style="padding-left: 5vw; padding-right: 5vw;">
+        <a class="navbar-brand" href="#"><img src="./includes/PNG/logo1.png" alt=""></a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#MenuTablet" aria-controls="MenuTablet" aria-expanded="false" aria-label="Toggle navigation">
+            <div class="row">
+                <input type="checkbox" id="hamburger">
+                <label for="hamburger" class="hamburger">
+                    <span class="line"></span>
+                    <span class="line"></span>
+                    <span class="line"></span>
+                </label>
+            </div>
+        </button>
+
+        <div class="collapse navbar-collapse" >
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item active">
+                <a class="nav-link" href="#inicio">INICIO <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                <a class="nav-link" href="#nosotros">NOSOTROS</a>
+                </li>
+                <li class="nav-item text-center">
+                    <a class="nav-link" href="#productos-servicios">
+                        <div>PRODUCTOS & <br>SERVICIOS </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#formulario">CONTACTO</a>
+                </li>
+            </ul>
+        </div>   
+        
+        <div class="collapse navbar-collapse" id="MenuTablet" style="background-color: #015288; opacity: .9;">
+            <ul class="navbar-nav ml-auto text-center">
+                <li class="nav-item active">
+                <a class="nav-link" href="#inicio">INICIO <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                <a class="nav-link" href="#nosotros">NOSOTROS</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#productos-servicios">
+                        <div>PRODUCTOS & <br>SERVICIOS </div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#formulario">CONTACTO</a>
+                </li>
+            </ul>
+        </div> 
+    </nav>
+    <section id="inicio" class="inicio" style="padding-left: 5vw; padding-right: 5vw; margin-bottom: -40px;">
+        <div class="content ml-auto">
+            <div class="row">
+                <div class="col-md-12 ">
+                    <p class="bienvenidos-text" style=" font-style: italic; font-weight: lighter;">¡BIENVENIDOS A BLONDOR!</p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <p class="estilo-text" style=" font-family: stangith;">Transformamos tu estilo <br> con elegancia</p>
+                </div>
+            </div>                
+        </div>        
+    </section>
+    <section class="nosotros position-absolute" id="nosotros">
+        <div class="row" id="nosotros_row">
+            <div class="col-12 text-center">
+                <div class="titulo">Nosotros</div>
+                <div class="linea-estrella">
+                    <hr>
+                    <div class="star"></div>
+                    <hr>
+                </div>
+                <p>
+                    <b>Somos un salón de belleza que entrega una amplia variedad
+                        de servicios y productos de alta calidad</b> a sus
+                    clientes, con un enfoque <b>profesional en el ámbito de
+                        la estética</b> y procurando que cada cliente se sienta
+                    satisfecho en la <b>experiencia de su cuidado personal.</b>
+                </p>
+            </div>
+        </div>
+    </section>
+    <div class="mensaje-container" id="mensaje-container">
+        <div class="mensaje">
+            <hr>
+            <h1>"Tu belleza, nuestra pasi&ograve;n."</h1>
+            <hr>
+        </div>
+    </div>
+    <section class="productos-servicios" id="productos-servicios">
+        <div class="row">
+            <div class="col-lg-6 col-md-12">
+                <div class="row row-producto-texto">
+                    <div class="col-12 titulo">
+                        <h1>Productos &  <br>Servicios</h1>
+                    </div>
+                    <div class="col-12 texto">
+                        <p>
+                            Ofrecemos una amplia variedad de servicios que 
+                        van desde corte de cabello para niño, varón y 
+                        dama, técnicas de coloración, masajes capilares, 
+                        tratamientos faciales, y hasta manicure. También, 
+                        vende productos de peluquería pertenecientes a 
+                        alta gama, las marcas específicas son: Loreal, 
+                        Wella, Farmavita y Alterego
+                        </p>
+                    </div>    
+                </div>
+            </div>
+            <div class="col-lg-6 col-md-12" >
+                <div class="row row-1" >
+                </div>
+                <div class="row row-2" >
+                    <div class="col-lg-4 col-md-4 col-sm-12 text-right">
+                        <img id="image1"  alt="">
+                    </div>
+                    <div class="col-lg-4 col-md-4 col-sm-12 text-center">
+                        <img id="image2"  alt="">
+                    </div>
+                    <div class="col-lg-4 col-md-4 col-sm-12">
+                        <img id="image3"  alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="iconos-servicios" style="padding-top: 100px;">
+        <div class="mensaje2-iconos row py-4" style="background-color: white; width: 100%; color: black; z-index: 100;">
+            <div class="col-md-4 col-lg-4 col-sm-4 col-xs-4 text-center icono-servicio-text">
+                <img class="img-fluid" src="./includes/PNG/icono1.png" alt="" class="img-fluid">
+                <div class="img-text">Corte de Cabello</div>
+            </div>
+            <div class="col-md-4 col-lg-4 col-sm-4 col-xs-4 text-center icono-servicio-text">
+                <img class="img-fluid" src="./includes/PNG/icono2.png" alt="" class="img-fluid">
+                <div class="img-text">Skincare</div>
+            </div>
+            <div class="col-md-4 col-lg-4 col-sm-4 col-xs-4 text-center icono-servicio-text">
+                <img class="img-fluid" src="./includes/PNG/icono3.png" alt="" class="img-fluid">
+                <div class="img-text">Manicure</div>
+            </div>
+        </div>
+    </section>
+    <section class="mensaje2-container" style="height: 400px; background-color: #015288; align-items: center; justify-content: center; display:flex;">
+        <div style="color: azure; font-style: italic; font-size: 3.5vw; font-weight: lighter;">
+            ...Donde cada detalle <b>importa</b> <br>
+        y cada cliente es <b>especial</b>...
+        </div>
+    </section>
+    <section class="grilla-imagenes"></section>
+    <section class="banner-agenda-hora">
+        <div>
+            <p class="mx-5 msg1" style="color: azure; font-size: 2vw; font-style: italic; font-weight: lighter;">AGENDA TU HORA Y</p> 
+            <p class="mx-5 msg2" style="color: azure; font-size: 6vw; font-family: stangith;" >Contáctanos</p>
+        </div>
+    </section>
+    <section class="formulario" id="formulario">
+        <div class="row">
+            <div class="col-md-6 col-lg-6 col-sm-12 col-xs-12 formulario-datos">
+                <div class="container my-5">
+                    <form action="">
+                        <div class="mb-3">
+                            <label for="nombre-form" class="form-label">*NOMBRE</label>
+                            <input type="text" class="form-control" id="nombre-form" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="correo-form" class="form-label">*CORREO</label>
+                            <input type="email" class="form-control" id="correo-form" aria-describedby="emailHelp" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="telefono-form" class="form-label">*TELÉFONO</label>
+                            <input type="text" class="form-control" id="telefono-form" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="mensaje-form" class="form-label">*MENSAJE</label>
+                            <textarea type="text" rows="5" class="form-control" id="mensaje-form"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <button type="submit" class="btn btn-primary py-2 px-4" id="enviar-form">ENVIAR</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-6 col-sm-12 col-xs-12 text-center" style="min-height: 300px;">
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3330.4513389336166!2d-70.58049762341811!3d-33.411475595518915!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9662cf21c6933155%3A0x30a077510bff2b96!2sAv.%20Apoquindo%204900%2C%207560973%20Las%20Condes%2C%20Regi%C3%B3n%20Metropolitana!5e0!3m2!1ses-419!2scl!4v1724607842182!5m2!1ses-419!2scl" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+        </div>
+    </section>
+    <section class="footer">
+        <div class="container">
+            <div class="row py-4">
+                <div class="col-md-4 col-lg-4">
+                    <div class="row my-4">
+                        <div class="col-12">
+                            <img src="includes/PNG/wsp.png" alt="">
+                           <numero style="font-size: 20px; color: azure; font-style: italic;">+56 9 6675 6614</numero> 
+                        </div>
+                    </div>
+                    <div class="row my-4">
+                        <div class="col-12">
+                            <img src="includes/PNG/correo.png" alt="">
+                            <correo style="font-size: 20px; color: azure; font-style: italic;">peluqueria@blondor.cl</correo>
+                        </div>
+                    </div>                    
+                </div>
+                <div class="col-md-4 col-lg-4">
+                    <div class="row my-4">
+                        <div class="col-12">
+                            <img src="includes/PNG/facebook.png" alt="">
+                            <facebook style="font-size: 20px; color: azure; font-style: italic;">blondorPeluqueria</facebook>
+                        </div>
+                    </div>
+                    <div class="row my-4">
+                        <div class="col-12">
+                            <img src="includes/PNG/instagram.png" alt="">
+                            <instagram style="font-size: 20px; color: azure; font-style: italic;"><a style="color: azure;" href="https://www.instagram.com/blondorpeluqueria?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==">@blondorpeluqueria</a></instagram>                             
+                        </div>
+                    </div>  
+                </div>
+                <div class="col-md-4 col-lg-4 text-center">
+                    <p style="color: azure; font-style: italic; font-weight: lighter; font-size: 18px; ">Apoquindo 4900 Local 53</p>
+                    <img src="includes/PNG/logo final.png" alt="">
+                </div>
+                <div class="col-md-4 col-lg-4 text-left" style="color:grey">
+                   Revisa <a href="./politicas.html"> AQUÍ</a> nuestras Políticas
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="whatsapp-container">
+        <a href="https://wa.me/+56966756614" class="whatsapp-float" target="_blank" id="whatsappIcon">
+            <img src="./includes/PNG/whatsapp.png" alt="WhatsApp" width="100" height="100">
+        </a>
+        <div class="whatsapp-banner">
+            <a style="color: azure;" href="https://wa.me/+56966756614" class="whatsapp-float" target="_blank" id="whatsappIcon">
+                ¡Agenda aquí!
+            </a>    
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="./includes/blondor.js"></script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+# Solo para desarrollo local. Producción es un cPanel sin contenedores (ver README).
 services:
   app:
     build: ./docker/app
@@ -9,6 +10,18 @@ services:
       TZ: America/Santiago
     depends_on:
       - db
+      - mail
+
+  # blondor.cl (sitio público). Misma imagen que la agenda: PHP para includes/mail.php, correos a Mailpit.
+  site:
+    build: ./docker/app
+    ports:
+      - "8087:80"
+    volumes:
+      - ./site:/var/www/html
+    environment:
+      TZ: America/Santiago
+    depends_on:
       - mail
 
   db:

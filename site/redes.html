@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blondor</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./includes/blondor.css?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .center-container {
+            height: 100vh; /* Ocupa toda la altura de la pantalla */
+        }
+
+        .center-item {
+            background-color: rgba(0, 123, 255, 0.5); ;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin: 10px;
+            border-radius: 15px;
+        }
+        a {
+            text-decoration: none;  /* Elimina el subrayado */
+            color: inherit;         /* Hereda el color del contenedor padre */
+        }
+
+        a:hover, a:focus, a:active {
+            text-decoration: none;  /* Asegura que no se subraye en hover o focus */
+            color: inherit;         /* Mantiene el mismo color al pasar el ratón */
+        }
+    </style>
+</head>
+<body style="
+
+    background-image: url('fondo_redes.jpeg');
+    
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    ">
+    <nav class="navbar navbar-expand-lg pt-5" style="padding-left: 5vw; padding-right: 5vw;">
+        <a class="navbar-brand" href="#"><img src="./includes/PNG/logo1.png" alt=""></a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#MenuTablet" aria-controls="MenuTablet" aria-expanded="false" aria-label="Toggle navigation">
+            <div class="row">
+                <input type="checkbox" id="hamburger">
+                <label for="hamburger" class="hamburger">
+                    <span class="line"></span>
+                    <span class="line"></span>
+                    <span class="line"></span>
+                </label>
+            </div>
+        </button>
+
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item active">
+                <a class="nav-link" href="#inicio">INICIO <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                <a class="nav-link" href="#nosotros">NOSOTROS</a>
+                </li>
+                <li class="nav-item text-center">
+                    <a class="nav-link" href="#productos-servicios">
+                        <div>PRODUCTOS & <br>SERVICIOS</div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#formulario">CONTACTO</a>
+                </li>
+            </ul>
+        </div>   
+        
+        <div class="collapse navbar-collapse" id="MenuTablet" style="background-color: #015288; opacity: .9;">
+            <ul class="navbar-nav ml-auto text-center">
+                <li class="nav-item active">
+                <a class="nav-link" href="#inicio">INICIO <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                <a class="nav-link" href="#nosotros">NOSOTROS</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#productos-servicios">
+                        <div>PRODUCTOS & <br>SERVICIOS</div>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#formulario">CONTACTO</a>
+                </li>
+            </ul>
+        </div> 
+    </nav>
+    <div class="d-flex justify-content-center align-items-center center-container">
+        <div class="row w-100 justify-content-center">
+            <div class="col-12 col-md-3">
+                <div class="center-item">
+                <a style="text-decoration: none;" href="https://wa.me/+56966756614">whatsapp
+                <img src="./includes/PNG/whatsapp.png" alt="WhatsApp" width="25" height="25"> 
+                </a>   
+                </div>
+            </div>
+            <div class="col-12 col-md-3">
+                <div class="center-item">
+                    <a href="https://www.instagram.com/blondorpeluqueria">Instagram
+                    <img src="./includes/PNG/Instagram_icon.png.webp" alt="Instagram" width="25" height="25"> 
+                    </a>  
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="./includes/blondor.js"></script>
+</body>
+</html>

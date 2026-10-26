@@ -3,6 +3,7 @@
 agenda/config.prod.php
 docker/db/init/*.sql.gz
 *.csv
+analisis_precios_*.md
 
 # Runtime de la app
 agenda/storage/logs/*
