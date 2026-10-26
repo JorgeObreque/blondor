@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Manrope:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="assets/css/site.css?v=2">
+    <link rel="stylesheet" href="assets/css/site.css?v=3">
 
     <script type="application/ld+json">
     {
@@ -114,49 +114,80 @@
                 <p class="gc__lead">Sirve para cualquier servicio y no vence. Si el servicio cuesta menos, queda saldo para la próxima visita. Llega al instante por correo.</p>
             </div>
 
-            <form class="gc-form" id="gc-form" method="post" novalidate action="https://agenda.blondor.cl/index.php/gift_cards/checkout">
-                <fieldset class="gc-amounts">
-                    <legend>Monto</legend>
-                    <label class="gc-amount"><input type="radio" name="amount_option" value="20000"><span>$20.000</span></label>
-                    <label class="gc-amount"><input type="radio" name="amount_option" value="30000" checked><span>$30.000</span></label>
-                    <label class="gc-amount"><input type="radio" name="amount_option" value="50000"><span>$50.000</span></label>
-                    <label class="gc-amount"><input type="radio" name="amount_option" value="other"><span>Otro monto</span></label>
-                </fieldset>
-                <label class="gc-field" id="gc-other" hidden>
-                    <span>Monto (desde $10.000)</span>
-                    <input type="text" inputmode="numeric" id="gc-other-amount" placeholder="$40.000" autocomplete="off">
-                </label>
-                <input type="hidden" name="amount" id="gc-amount" value="30000">
+            <div class="gc-slider" id="gc-slider" data-pane="products">
+                <div class="gc-track">
+                    <div class="gc-pane" id="gc-pane-products" role="group" aria-label="Elige tu gift card">
+                        <div class="gc-products">
+                            <button type="button" class="gc-product" data-amount="20000" aria-label="Gift card de $20.000">
+                                <span class="gc-product__top"><img src="assets/img/blondor-mark.png" alt="" width="18" height="24">GIFT CARD</span>
+                                <span class="gc-product__amount">$20.000</span>
+                                <span class="gc-product__cta">Regalar <span aria-hidden="true">›</span></span>
+                            </button>
+                            <button type="button" class="gc-product" data-amount="30000" aria-label="Gift card de $30.000">
+                                <span class="gc-product__top"><img src="assets/img/blondor-mark.png" alt="" width="18" height="24">GIFT CARD</span>
+                                <span class="gc-product__amount">$30.000</span>
+                                <span class="gc-product__cta">Regalar <span aria-hidden="true">›</span></span>
+                            </button>
+                            <button type="button" class="gc-product" data-amount="50000" aria-label="Gift card de $50.000">
+                                <span class="gc-product__top"><img src="assets/img/blondor-mark.png" alt="" width="18" height="24">GIFT CARD</span>
+                                <span class="gc-product__amount">$50.000</span>
+                                <span class="gc-product__cta">Regalar <span aria-hidden="true">›</span></span>
+                            </button>
+                            <button type="button" class="gc-product gc-product--other" data-amount="other" aria-label="Gift card con otro monto">
+                                <span class="gc-product__top"><img src="assets/img/blondor-mark.png" alt="" width="18" height="24">GIFT CARD</span>
+                                <span class="gc-product__amount">Otro monto</span>
+                                <span class="gc-product__cta">Desde $10.000 <span aria-hidden="true">›</span></span>
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="gc-row">
-                    <label class="gc-field">
-                        <span>Tu nombre</span>
-                        <input type="text" name="buyer_name" maxlength="120" autocomplete="name" required>
-                    </label>
-                    <label class="gc-field">
-                        <span>Tu correo</span>
-                        <input type="email" name="buyer_email" maxlength="190" autocomplete="email" required placeholder="Ahí te llega la gift card">
-                    </label>
-                </div>
-                <div class="gc-row">
-                    <label class="gc-field">
-                        <span>Para <small>opcional</small></span>
-                        <input type="text" name="recipient_name" maxlength="120" placeholder="Nombre de quien la recibe">
-                    </label>
-                    <label class="gc-field">
-                        <span>Su correo <small>opcional</small></span>
-                        <input type="email" name="recipient_email" maxlength="190" placeholder="Se la enviamos también">
-                    </label>
-                </div>
-                <label class="gc-field">
-                    <span>Mensaje <small>opcional</small></span>
-                    <textarea name="message" rows="2" maxlength="500" placeholder="¡Feliz cumpleaños!"></textarea>
-                </label>
+                    <div class="gc-pane" id="gc-pane-form" inert>
+                        <form class="gc-form" id="gc-form" method="post" novalidate action="https://agenda.blondor.cl/index.php/gift_cards/checkout">
+                            <div class="gc-selected">
+                                <button type="button" class="gc-back" id="gc-back"><span aria-hidden="true">‹</span> Elegir otra</button>
+                                <div class="gc-selected__card" aria-live="polite">
+                                    <span class="gc-product__top"><img src="assets/img/blondor-mark.png" alt="" width="18" height="24">GIFT CARD</span>
+                                    <span class="gc-selected__amount" id="gc-selected-amount">$30.000</span>
+                                </div>
+                            </div>
+                            <label class="gc-field" id="gc-other" hidden>
+                                <span>Monto (desde $10.000)</span>
+                                <input type="text" inputmode="numeric" id="gc-other-amount" placeholder="$40.000" autocomplete="off">
+                            </label>
+                            <input type="hidden" name="amount" id="gc-amount" value="30000">
 
-                <p class="gc-error" id="gc-error" role="alert" hidden></p>
-                <button class="btn btn--white gc-pay" type="submit" id="gc-pay">Pagar $30.000 con Webpay</button>
-                <p class="gc-secure">Pago seguro con Webpay: débito, crédito y prepago.</p>
-            </form>
+                            <div class="gc-row">
+                                <label class="gc-field">
+                                    <span>Tu nombre</span>
+                                    <input type="text" name="buyer_name" maxlength="120" autocomplete="name" required>
+                                </label>
+                                <label class="gc-field">
+                                    <span>Tu correo</span>
+                                    <input type="email" name="buyer_email" maxlength="190" autocomplete="email" required placeholder="Ahí te llega la gift card">
+                                </label>
+                            </div>
+                            <div class="gc-row">
+                                <label class="gc-field">
+                                    <span>Para <small>opcional</small></span>
+                                    <input type="text" name="recipient_name" maxlength="120" placeholder="Nombre de quien la recibe">
+                                </label>
+                                <label class="gc-field">
+                                    <span>Su correo <small>opcional</small></span>
+                                    <input type="email" name="recipient_email" maxlength="190" placeholder="Se la enviamos también">
+                                </label>
+                            </div>
+                            <label class="gc-field">
+                                <span>Mensaje <small>opcional</small></span>
+                                <textarea name="message" rows="2" maxlength="500" placeholder="¡Feliz cumpleaños!"></textarea>
+                            </label>
+
+                            <p class="gc-error" id="gc-error" role="alert" hidden></p>
+                            <button class="btn btn--white gc-pay" type="submit" id="gc-pay">Pagar $30.000 con Webpay</button>
+                            <p class="gc-secure">Pago seguro con Webpay: débito, crédito y prepago.</p>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -231,6 +262,6 @@
     </a>
 </div>
 
-<script src="assets/js/site.js?v=2" defer></script>
+<script src="assets/js/site.js?v=3" defer></script>
 </body>
 </html>

@@ -181,42 +181,91 @@
     }
 
     /**
-     * Gift card form: fixed amounts or a free one, posted to the agenda, which sends the buyer to Webpay.
+     * Gift cards: the products slide away (right to left) and the form comes in with the chosen card; "Elegir otra"
+     * slides back. The form posts to the agenda, which sends the buyer to Webpay.
      */
     function setupGiftCards() {
-        const form = document.getElementById('gc-form');
+        const slider = document.getElementById('gc-slider');
 
-        if (!form) {
+        if (!slider) {
             return;
         }
 
         const MIN = 10000;
         const MAX = 500000;
+        const SLIDE_MS = 450;
+        const form = document.getElementById('gc-form');
+        const productsPane = document.getElementById('gc-pane-products');
+        const formPane = document.getElementById('gc-pane-form');
         const other = document.getElementById('gc-other');
         const otherInput = document.getElementById('gc-other-amount');
         const amount = document.getElementById('gc-amount');
+        const selectedAmount = document.getElementById('gc-selected-amount');
         const pay = document.getElementById('gc-pay');
         const error = document.getElementById('gc-error');
+        let selected = '30000';
+        let lastProduct = null;
 
         form.action = AGENDA + '/index.php/gift_cards/checkout';
 
         function currentAmount() {
-            const option = form.querySelector('input[name="amount_option"]:checked').value;
-
-            return option === 'other' ? Number(otherInput.value.replace(/\D/g, '')) || 0 : Number(option);
+            return selected === 'other' ? Number(otherInput.value.replace(/\D/g, '')) || 0 : Number(selected);
         }
 
         function update() {
-            const isOther = form.querySelector('input[name="amount_option"]:checked').value === 'other';
             const value = currentAmount();
 
-            other.hidden = !isOther;
+            other.hidden = selected !== 'other';
             amount.value = value;
+            selectedAmount.textContent = value ? money(value) : 'Otro monto';
             pay.textContent = value ? 'Pagar ' + money(value) + ' con Webpay' : 'Pagar con Webpay';
             error.hidden = true;
+            fitHeight();
         }
 
-        form.addEventListener('change', update);
+        // The slider takes the height of the visible pane, so the section does not keep the taller one's space.
+        function fitHeight() {
+            const pane = slider.dataset.pane === 'form' ? formPane : productsPane;
+
+            slider.style.height = pane.offsetHeight + 'px';
+        }
+
+        function show(pane) {
+            const toForm = pane === 'form';
+
+            slider.dataset.pane = pane;
+            productsPane.inert = toForm;
+            formPane.inert = !toForm;
+            fitHeight();
+
+            // On the phone, bring the top of the card into view if it scrolled away.
+            const top = slider.getBoundingClientRect().top;
+
+            if (top < 70 || top > window.innerHeight * 0.6) {
+                slider.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }
+
+            setTimeout(() => {
+                const target = toForm ? (selected === 'other' ? otherInput : form.elements.buyer_name) : lastProduct;
+
+                target?.focus({preventScroll: true});
+            }, SLIDE_MS);
+        }
+
+        productsPane.addEventListener('click', (event) => {
+            const product = event.target.closest('.gc-product');
+
+            if (!product) {
+                return;
+            }
+
+            lastProduct = product;
+            selected = product.dataset.amount;
+            update();
+            show('form');
+        });
+
+        document.getElementById('gc-back').addEventListener('click', () => show('products'));
 
         otherInput.addEventListener('input', () => {
             const digits = otherInput.value.replace(/\D/g, '');
@@ -239,6 +288,7 @@
                 event.preventDefault();
                 error.textContent = message;
                 error.hidden = false;
+                fitHeight();
                 return;
             }
 
@@ -251,6 +301,9 @@
             pay.disabled = false;
             update();
         });
+
+        window.addEventListener('resize', fitHeight);
+        window.addEventListener('load', fitHeight); // Las fuentes cambian la altura al cargar.
 
         update();
     }
