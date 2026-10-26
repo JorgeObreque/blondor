@@ -28,6 +28,7 @@ case "${1:-}" in
     # includes/SVG (873 MB) no lo usa ninguna página; home.html e index2.html son páginas de relleno del hosting.
     ssh blondor.web 'tar czf - -C public_html --exclude=./agenda --exclude=./agenda_old --exclude=./cgi-bin --exclude=./.well-known --exclude=./.ftpquota --exclude=./includes/SVG --exclude=./home.html --exclude=./index2.html .' \
       | tar xzf - -C site
+    chmod 755 site  # el tar trae los permisos de public_html (750) y Apache en docker no podría leerla
     echo "Sitio actualizado. Revisa los cambios con: git status site"
     ;;
   *)
