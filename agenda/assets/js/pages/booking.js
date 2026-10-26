@@ -1,953 +1,1076 @@
 /* ----------------------------------------------------------------------------
- * Easy!Appointments - Online Appointment Scheduler
+ * Blondor - Reserva pública, móvil primero
  *
- * @package     EasyAppointments
- * @author      A.Tselegidis <alextselegidis@gmail.com>
- * @copyright   Copyright (c) Alex Tselegidis
- * @license     https://opensource.org/licenses/GPL-3.0 - GPLv3
- * @link        https://easyappointments.org
- * @since       v1.5.0
+ * Reemplaza el asistente de 4 pasos de Easy!Appointments por el flujo de Fresha y Booksy:
+ *   1. Servicio: lista por familia con duración y precio; un toque elige y avanza.
+ *   2. Día y hora: tira de días (los sin horas aparecen apagados) y horas agrupadas en mañana, tarde y noche.
+ *   3. Tus datos y confirmar: resumen de la cita, formulario corto y un solo botón.
+ * La profesional solo se pregunta cuando más de una hace el servicio. El botón «atrás» del teléfono vuelve un paso.
  * ---------------------------------------------------------------------------- */
 
 /**
  * Booking page.
  *
- * This module implements the functionality of the booking page
- *
- * Old Name: FrontendBook
+ * This module implements the functionality of the booking page.
  */
 App.Pages.Booking = (function () {
-    const $selectDate = $('#select-date');
-    const $selectService = $('#select-service');
-    const $selectProvider = $('#select-provider');
-    const $selectTimezone = $('#select-timezone');
-    const $firstName = $('#first-name');
-    const $lastName = $('#last-name');
-    const $email = $('#email');
-    const $phoneNumber = $('#phone-number');
-    const $address = $('#address');
-    const $city = $('#city');
-    const $zipCode = $('#zip-code');
-    const $notes = $('#notes');
-    const $captchaTitle = $('.captcha-title');
-    const $availableHours = $('#available-hours');
-    const $bookAppointmentSubmit = $('#book-appointment-submit');
-    const $deletePersonalInformation = $('#delete-personal-information');
-    const $customField1 = $('#custom-field-1');
-    const $customField2 = $('#custom-field-2');
-    const $customField3 = $('#custom-field-3');
-    const $customField4 = $('#custom-field-4');
-    const $customField5 = $('#custom-field-5');
-    const tippy = window.tippy;
+    const $page = $('#booking-page');
+    const $title = $('#bk-title');
+    const $count = $('#bk-count');
+    const $back = $('#bk-back');
+    const $services = $('#bk-services');
+    const $search = $('#bk-search');
+    const $pickedService = $('#bk-picked-service');
+    const $providers = $('#bk-providers');
+    const $providerChips = $('#bk-provider-chips');
+    const $monthLabel = $('#bk-month-label');
+    const $days = $('#bk-days');
+    const $slots = $('#bk-slots');
+    const $summary = $('#bk-summary');
+    const $form = $('#bk-form');
+    const $bar = $('#bk-bar');
+    const $barText = $('#bk-bar-text');
+    const $next = $('#bk-next');
+    const $toast = $('#bk-toast');
     const moment = window.moment;
 
-    /**
-     * Determines the functionality of the page.
-     *
-     * @type {Boolean}
-     */
-    let manageMode = vars('manage_mode') || false;
+    const STEPS = ['service', 'time', 'details'];
+    const ANY_PROVIDER = 'any-provider';
+    const STORAGE_KEY = 'blondor.booking.customer';
 
     /**
-     * Detect the month step.
-     *
-     * @param previousDateTimeMoment
-     * @param nextDateTimeMoment
-     *
-     * @returns {Number}
+     * Families group the services as clients look for them; the first match wins (same rules as /precios).
      */
-    function detectDatepickerMonthChangeStep(previousDateTimeMoment, nextDateTimeMoment) {
-        return previousDateTimeMoment.isAfter(nextDateTimeMoment) ? -1 : 1;
+    const FAMILIES = [
+        {key: 'promo', label: 'Promociones', test: /^promo/},
+        {key: 'color', label: 'Color y mechas', test: /color|balay|babyl|mechas|visos|contouring|canas|decolor/},
+        {key: 'corte', label: 'Cortes', test: /^corte\b/},
+        {key: 'tratamiento', label: 'Tratamientos', test: /botox|olaplex|k18|ampolla|total mask|hidratante/},
+        {key: 'alisado', label: 'Alisado', test: /alisado/},
+        {key: 'peinado', label: 'Peinados', test: /brushing|peinado|ondas/},
+        {key: 'permanente', label: 'Permanente', test: /^permanente/},
+        {key: 'masaje', label: 'Masajes', test: /masaje/},
+        {key: 'manos', label: 'Manos y pies', test: /manos|pies|manicure|pedicur/},
+        {key: 'depilacion', label: 'Depilación', test: /depilaci|rebaje|cejas/},
+        {key: 'facial', label: 'Facial', test: /facial/},
+        {key: 'otros', label: 'Otros', test: /./},
+    ];
+
+    const DAY_SHORT = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+    const DAY_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const MONTHS = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    ];
+
+    const manageMode = Boolean(vars('manage_mode'));
+    const appointmentData = vars('appointment_data');
+    const appointmentId = manageMode && appointmentData ? appointmentData.id : null;
+
+    const providers = (vars('available_providers') || []).map((provider) => ({
+        ...provider,
+        id: Number(provider.id),
+        services: (provider.services || []).map(Number),
+    }));
+
+    const services = (vars('available_services') || [])
+        .map((service) => ({
+            ...service,
+            id: Number(service.id),
+            duration: Number(service.duration) || 30,
+            price: Number(service.price) || 0,
+        }))
+        .filter((service) => providersFor(service.id).length > 0);
+
+    const state = {
+        step: 'service',
+        depth: 0,
+        keyword: '',
+        serviceId: null,
+        providerId: null,
+        date: null,
+        time: null,
+        unavailable: {}, // "service|provider" → {"YYYY-MM": Set of Y-m-d}
+        hours: {}, // "service|provider|date" → ["HH:mm"]
+        loadingMonths: false,
+        saving: false,
+        deleteArmed: false,
+    };
+
+    let toastTimer = null;
+
+    // Helpers ---------------------------------------------------------------------------------------------------
+
+    function esc(value) {
+        return App.Utils.String.escapeHtml(String(value ?? ''));
+    }
+
+    function normalize(text) {
+        return String(text || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .trim();
+    }
+
+    /**
+     * "MECHAS CON PAPEL" → "Mechas con papel", "color raiz" → "Color raiz".
+     */
+    function displayName(service) {
+        const name = String(service.name || '').trim().replace(/\s+/g, ' ');
+        const lower = name === name.toUpperCase() ? name.toLowerCase() : name;
+
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }
+
+    function money(value) {
+        return '$' + Math.round(value).toLocaleString('es-CL');
+    }
+
+    function priceText(service) {
+        if (!(service.price > 0)) {
+            return '';
+        }
+
+        return (service.price_type === 'from' ? 'desde ' : '') + money(service.price);
+    }
+
+    function durationText(total) {
+        if (total < 60) {
+            return total + ' min';
+        }
+
+        const hours = Math.floor(total / 60);
+        const minutes = total % 60;
+
+        return hours + ' h' + (minutes ? ' ' + minutes + ' min' : '');
+    }
+
+    function timeText(hhmm) {
+        if (vars('time_format') !== 'regular') {
+            return hhmm;
+        }
+
+        const [hours, minutes] = hhmm.split(':').map(Number);
+        const suffix = hours < 12 ? 'a. m.' : 'p. m.';
+
+        return (hours % 12 || 12) + ':' + String(minutes).padStart(2, '0') + ' ' + suffix;
+    }
+
+    function dateLong(date) {
+        const day = moment(date);
+
+        return DAY_LONG[day.day()] + ' ' + day.date() + ' de ' + MONTHS[day.month()];
+    }
+
+    function dateShort(date) {
+        const day = moment(date);
+
+        return DAY_SHORT[day.day()] + ' ' + day.date() + ' ' + MONTHS[day.month()].slice(0, 3);
+    }
+
+    function service(id) {
+        return services.find((item) => item.id === Number(id));
+    }
+
+    function providersFor(serviceId) {
+        return providers.filter((provider) => provider.services.includes(Number(serviceId)));
+    }
+
+    function familyOf(item) {
+        const name = normalize(item.name);
+
+        return FAMILIES.find((family) => family.test.test(name));
+    }
+
+    function availabilityKey() {
+        return state.serviceId + '|' + state.providerId;
+    }
+
+    /**
+     * Provider used to ask for hours: the chosen one, or the only one that does the service.
+     */
+    function defaultProviderId(serviceId) {
+        const candidates = providersFor(serviceId);
+
+        if (candidates.length === 1) {
+            return candidates[0].id;
+        }
+
+        return vars('display_any_provider') === '1' ? ANY_PROVIDER : candidates[0]?.id ?? null;
+    }
+
+    function providerName(providerId) {
+        const provider = providers.find((item) => item.id === Number(providerId));
+
+        if (!provider) {
+            return '';
+        }
+
+        const first = String(provider.first_name || '').trim();
+
+        return first.charAt(0).toUpperCase() + first.slice(1);
+    }
+
+    function showToast(message, isError = true) {
+        clearTimeout(toastTimer);
+        $toast.text(message).toggleClass('bk-toast--error', isError).prop('hidden', false);
+        toastTimer = setTimeout(() => $toast.prop('hidden', true), 5000);
+    }
+
+    function readSavedCustomer() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function writeSavedCustomer(customer) {
+        try {
+            if (customer) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(customer));
+            } else {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        } catch (error) {
+            // Private mode or blocked storage: the booking works the same without it.
+        }
+    }
+
+    // Navigation ------------------------------------------------------------------------------------------------
+
+    const TITLES = {
+        service: 'Elige tu servicio',
+        time: 'Elige día y hora',
+        details: manageMode ? 'Revisa y guarda' : 'Tus datos',
+    };
+
+    function render(step) {
+        state.step = step;
+
+        const index = STEPS.indexOf(step);
+
+        $page.attr('data-step', step);
+        $page.find('.bk-step').each((i, el) => {
+            el.hidden = el.dataset.step !== step;
+        });
+        $title.text(TITLES[step]);
+        $count.text('Paso ' + (index + 1) + ' de ' + STEPS.length);
+        $back.prop('hidden', index === 0);
+
+        if (step === 'service') {
+            renderServices();
+        } else if (step === 'time') {
+            renderTimeStep();
+        } else {
+            renderSummary();
+        }
+
+        renderBar();
+        window.scrollTo(0, 0);
+    }
+
+    function goTo(step) {
+        state.depth += 1;
+        history.pushState({bkStep: step, depth: state.depth}, '');
+        render(step);
+    }
+
+    function goBack() {
+        if (state.depth > 0) {
+            history.back();
+            return;
+        }
+
+        // Entered on a later step (link with ?service=…): go back inside the page.
+        const previous = STEPS[Math.max(0, STEPS.indexOf(state.step) - 1)];
+        history.replaceState({bkStep: previous, depth: 0}, '');
+        render(previous);
+    }
+
+    function renderBar() {
+        if (state.step === 'service') {
+            $bar.prop('hidden', true);
+            return;
+        }
+
+        $bar.prop('hidden', false);
+
+        if (state.step === 'time') {
+            const ready = Boolean(state.date && state.time);
+
+            $barText.html(
+                ready
+                    ? `<strong>${esc(dateShort(state.date))} · ${esc(timeText(state.time))}</strong>
+                       <span>${esc(displayName(service(state.serviceId)))}</span>`
+                    : '<span>Elige una hora para continuar</span>',
+            );
+            $next.text('Continuar').prop('disabled', !ready);
+            return;
+        }
+
+        const item = service(state.serviceId);
+        const price = priceText(item);
+
+        $barText.html(
+            price ? `<span>Total</span><strong>${esc(price)}</strong>` : `<strong>${esc(displayName(item))}</strong>`,
+        );
+        $next.text(state.saving ? 'Guardando…' : manageMode ? 'Guardar cambios' : 'Confirmar reserva');
+        $next.prop('disabled', state.saving);
+    }
+
+    // Step 1: service -------------------------------------------------------------------------------------------
+
+    function serviceRow(item) {
+        const price = priceText(item);
+        const description = String(item.description || '').trim();
+
+        return `
+            <li>
+                <button type="button" class="bk-svc ${item.id === state.serviceId ? 'is-selected' : ''}" data-service="${item.id}">
+                    <span class="bk-svc__text">
+                        <span class="bk-svc__name">${esc(displayName(item))}</span>
+                        <span class="bk-svc__meta">${esc(durationText(item.duration))}</span>
+                        ${description ? `<span class="bk-svc__desc">${esc(description)}</span>` : ''}
+                    </span>
+                    <span class="bk-svc__price">${price ? esc(price) : '<small>Precio a confirmar</small>'}</span>
+                    <svg class="bk-svc__go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </li>`;
+    }
+
+    function renderServices() {
+        const keyword = normalize(state.keyword);
+
+        if (keyword) {
+            const matches = services.filter((item) =>
+                keyword
+                    .split(/\s+/)
+                    .every((word) => normalize(item.name).includes(word) || normalize(familyOf(item).label).includes(word)),
+            );
+
+            $services.html(
+                matches.length
+                    ? `<ul class="bk-list">${matches.map(serviceRow).join('')}</ul>`
+                    : `<p class="bk-empty">No encontramos «${esc(state.keyword)}». Prueba con otra palabra o
+                       <a href="${whatsappUrl('Hola, quiero reservar: ' + state.keyword)}" target="_blank" rel="noopener">escríbenos por WhatsApp</a>.</p>`,
+            );
+            return;
+        }
+
+        const popular = (vars('popular_service_ids') || []).map(service).filter(Boolean);
+
+        const groups = FAMILIES.map((family) => ({
+            family,
+            items: services
+                .filter((item) => familyOf(item) === family)
+                .sort((a, b) => displayName(a).localeCompare(displayName(b), 'es')),
+        })).filter((group) => group.items.length);
+
+        const nav = groups
+            .map((group) => `<a class="bk-chip" href="#bk-family-${group.family.key}">${esc(group.family.label)}</a>`)
+            .join('');
+
+        $services.html(`
+            <nav class="bk-chips bk-chips--scroll" aria-label="Familias">${nav}</nav>
+            ${popular.length
+                ? `<section class="bk-group">
+                       <h2 class="bk-group__title">Más pedidos</h2>
+                       <ul class="bk-list">${popular.map(serviceRow).join('')}</ul>
+                   </section>`
+                : ''}
+            ${groups
+                .map(
+                    (group) => `
+                        <section class="bk-group" id="bk-family-${group.family.key}">
+                            <h2 class="bk-group__title">${esc(group.family.label)}</h2>
+                            <ul class="bk-list">${group.items.map(serviceRow).join('')}</ul>
+                        </section>`,
+                )
+                .join('')}
+        `);
+    }
+
+    function selectService(id) {
+        if (state.serviceId !== id) {
+            state.serviceId = id;
+            state.providerId = defaultProviderId(id);
+            state.date = null;
+            state.time = null;
+        }
+
+        goTo('time');
+    }
+
+    // Step 2: day and time --------------------------------------------------------------------------------------
+
+    function renderTimeStep() {
+        const item = service(state.serviceId);
+        const price = priceText(item);
+
+        $pickedService
+            .find('.bk-picked__text')
+            .html(
+                `<strong>${esc(displayName(item))}</strong>
+                 <span>${esc([durationText(item.duration), price].filter(Boolean).join(' · '))}</span>`,
+            );
+
+        renderProviders();
+        renderDays();
+        loadAvailability();
+
+        if (state.date) {
+            loadHours();
+        }
+    }
+
+    function renderProviders() {
+        const candidates = providersFor(state.serviceId);
+
+        $providers.prop('hidden', candidates.length < 2);
+
+        if (candidates.length < 2) {
+            return;
+        }
+
+        const options = [];
+
+        if (vars('display_any_provider') === '1') {
+            options.push({id: ANY_PROVIDER, label: 'Sin preferencia'});
+        }
+
+        candidates.forEach((provider) => options.push({id: provider.id, label: providerName(provider.id)}));
+
+        $providerChips.html(
+            options
+                .map(
+                    (option) => `
+                        <button type="button" class="bk-chip" role="radio" data-provider="${option.id}"
+                                aria-checked="${String(option.id) === String(state.providerId)}">${esc(option.label)}</button>`,
+                )
+                .join(''),
+        );
+    }
+
+    function bookingDays() {
+        const days = [];
+        const first = moment().startOf('day');
+        const limit = Number(vars('future_booking_limit')) || 90;
+
+        for (let i = 0; i <= limit; i++) {
+            days.push(first.clone().add(i, 'days').format('YYYY-MM-DD'));
+        }
+
+        return days;
+    }
+
+    function isUnavailable(date) {
+        const months = state.unavailable[availabilityKey()] || {};
+        const month = months[date.slice(0, 7)];
+
+        return month ? month.has(date) : null; // null: not loaded yet
+    }
+
+    function renderDays() {
+        const html = bookingDays()
+            .map((date) => {
+                const unavailable = isUnavailable(date);
+                const day = moment(date);
+                const isFirstOfMonth = day.date() === 1;
+
+                return `
+                    ${isFirstOfMonth ? `<span class="bk-days__month">${esc(MONTHS[day.month()].slice(0, 3))}</span>` : ''}
+                    <button type="button" class="bk-day ${unavailable === null ? 'is-loading' : ''}" role="radio"
+                            data-date="${date}" aria-checked="${date === state.date}"
+                            ${unavailable ? 'disabled aria-disabled="true"' : ''}
+                            aria-label="${esc(dateLong(date))}${unavailable ? ', sin horas' : ''}">
+                        <span class="bk-day__name">${esc(DAY_SHORT[day.day()])}</span>
+                        <span class="bk-day__num">${day.date()}</span>
+                    </button>`;
+            })
+            .join('');
+
+        $days.html(html);
+        $monthLabel.text(state.date ? capitalize(dateLong(state.date)) : 'Buscando horas disponibles…');
+
+        const selected = $days.find('[aria-checked="true"]')[0];
+
+        if (selected) {
+            selected.scrollIntoView({block: 'nearest', inline: 'center'});
+        }
+    }
+
+    function capitalize(text) {
+        return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+    }
+
+    /**
+     * Load the unavailable days month by month, select the first day with free hours and keep loading the rest.
+     */
+    async function loadAvailability() {
+        const key = availabilityKey();
+
+        if (!state.providerId) {
+            renderNoHours();
+            return;
+        }
+
+        state.unavailable[key] = state.unavailable[key] || {};
+
+        const months = [...new Set(bookingDays().map((date) => date.slice(0, 7)))];
+        let failed = false;
+
+        for (const month of months) {
+            if (availabilityKey() !== key) {
+                return; // The service or provider changed meanwhile.
+            }
+
+            if (!state.unavailable[key][month]) {
+                try {
+                    const dates = await App.Http.Booking.getUnavailableDates({
+                        serviceId: state.serviceId,
+                        providerId: state.providerId,
+                        date: month + '-01',
+                        appointmentId,
+                    });
+
+                    state.unavailable[key][month] = new Set(dates);
+                } catch (error) {
+                    failed = true;
+                    showToast(error.message);
+                    break;
+                }
+
+                if (availabilityKey() !== key || state.step !== 'time') {
+                    return;
+                }
+
+                renderDays();
+            }
+
+            if (!state.date) {
+                const first = bookingDays().find((date) => date.startsWith(month) && isUnavailable(date) === false);
+
+                if (first) {
+                    selectDate(first);
+                }
+            }
+        }
+
+        if (!state.date && !failed) {
+            renderNoHours();
+        }
+    }
+
+    function selectDate(date) {
+        state.date = date;
+        state.time = null;
+        renderDays();
+        renderBar();
+        loadHours();
+    }
+
+    async function loadHours() {
+        const date = state.date;
+        const key = availabilityKey() + '|' + date;
+
+        if (!state.hours[key]) {
+            $slots.html('<div class="bk-slots__loading"><span></span><span></span><span></span><span></span></div>');
+
+            try {
+                state.hours[key] = await App.Http.Booking.getAvailableHours({
+                    serviceId: state.serviceId,
+                    providerId: state.providerId,
+                    date,
+                    duration: service(state.serviceId).duration,
+                    appointmentId,
+                });
+            } catch (error) {
+                $slots.html(`<p class="bk-empty">${esc(error.message)}</p>`);
+                return;
+            }
+        }
+
+        if (state.date !== date) {
+            return;
+        }
+
+        renderSlots(state.hours[key]);
+    }
+
+    function renderSlots(hours) {
+        if (!hours.length) {
+            $slots.html('<p class="bk-empty">Este día ya no quedan horas. Elige otro día.</p>');
+            return;
+        }
+
+        const groups = [
+            {label: 'Mañana', items: hours.filter((hhmm) => hhmm < '12:00')},
+            {label: 'Tarde', items: hours.filter((hhmm) => hhmm >= '12:00' && hhmm < '18:00')},
+            {label: 'Noche', items: hours.filter((hhmm) => hhmm >= '18:00')},
+        ].filter((group) => group.items.length);
+
+        $slots.html(
+            groups
+                .map(
+                    (group) => `
+                        <div class="bk-slots__group">
+                            <p class="bk-label">${group.label}</p>
+                            <div class="bk-slots__grid" role="radiogroup" aria-label="${group.label}">
+                                ${group.items
+                                    .map(
+                                        (hhmm) => `
+                                            <button type="button" class="bk-slot" role="radio" data-time="${hhmm}"
+                                                    aria-checked="${hhmm === state.time}">${esc(timeText(hhmm))}</button>`,
+                                    )
+                                    .join('')}
+                            </div>
+                        </div>`,
+                )
+                .join(''),
+        );
+    }
+
+    function renderNoHours() {
+        $monthLabel.text('Sin horas disponibles');
+        $slots.html(`
+            <div class="bk-empty bk-empty--card">
+                <strong>No quedan horas online para este servicio.</strong>
+                <span>Escríbenos y te buscamos un espacio.</span>
+                <a class="bk-secondary" href="${whatsappUrl('Hola, quiero reservar ' + displayName(service(state.serviceId)))}"
+                   target="_blank" rel="noopener">Escribir por WhatsApp</a>
+            </div>`);
+    }
+
+    function whatsappUrl(text) {
+        return 'https://wa.me/' + $page.data('whatsapp') + '?text=' + encodeURIComponent(text);
+    }
+
+    // Step 3: details and confirmation --------------------------------------------------------------------------
+
+    function renderSummary() {
+        const item = service(state.serviceId);
+        const price = priceText(item);
+        const choseProvider = providersFor(state.serviceId).length > 1 && state.providerId !== ANY_PROVIDER;
+
+        $summary.html(`
+            <p class="bk-summary__service">${esc(displayName(item))}</p>
+            <p class="bk-summary__when">${esc(capitalize(dateLong(state.date)))}, ${esc(timeText(state.time))}</p>
+            <ul class="bk-summary__facts">
+                <li>${esc(durationText(item.duration))}</li>
+                ${price ? `<li>${esc(price)}</li>` : ''}
+                ${choseProvider ? `<li>Con ${esc(providerName(state.providerId))}</li>` : ''}
+            </ul>
+            <p class="bk-summary__where">${esc($page.data('address'))}</p>
+            <button type="button" class="bk-summary__edit" data-goto="time">Cambiar día u hora</button>
+        `);
+    }
+
+    function fillCustomer() {
+        const customer = manageMode ? vars('customer_data') : readSavedCustomer();
+        const fields = {
+            'first-name': 'first_name',
+            'last-name': 'last_name',
+            'phone-number': 'phone_number',
+            'email': 'email',
+            'address': 'address',
+            'city': 'city',
+            'zip-code': 'zip_code',
+        };
+
+        Object.entries(fields).forEach(([id, key]) => {
+            const $input = $('#' + id);
+
+            if ($input.length && customer && customer[key]) {
+                $input.val(customer[key]);
+            }
+        });
+
+        if (manageMode && appointmentData && appointmentData.notes) {
+            $('#notes').val(appointmentData.notes);
+        }
+
+        // Links can prefill the form (?first_name=…&phone=…), as in Easy!Appointments.
+        const params = {first_name: 'first-name', last_name: 'last-name', email: 'email', phone: 'phone-number'};
+
+        Object.entries(params).forEach(([param, id]) => {
+            const value = App.Utils.Url.queryParam(param);
+
+            if (value) {
+                $('#' + id).val(value);
+            }
+        });
+
+        if (manageMode) {
+            $('#bk-remember').closest('.bk-check').prop('hidden', true);
+        }
+    }
+
+    function setFieldError($input, message) {
+        const $error = $input.closest('.bk-field').find('.bk-field__error');
+
+        $input.toggleClass('is-invalid', Boolean(message)).attr('aria-invalid', message ? 'true' : null);
+        $error.text(message || '').prop('hidden', !message);
+    }
+
+    function validateForm() {
+        let firstInvalid = null;
+
+        $form.find('input, textarea').each((index, el) => {
+            const $input = $(el);
+
+            if (el.type === 'checkbox' || el.id === 'captcha-text') {
+                return;
+            }
+
+            const value = String($input.val() || '').trim();
+            let message = '';
+
+            if ((el.required || $input.hasClass('required')) && !value) {
+                message = 'Completa este dato.';
+            } else if (el.id === 'email' && value && !App.Utils.Validation.email(value)) {
+                message = 'Revisa el correo, parece incompleto.';
+            } else if (el.id === 'phone-number' && value && (value.replace(/\D/g, '').length < 8 || !App.Utils.Validation.phone(value))) {
+                message = 'Revisa el teléfono, debe tener al menos 8 dígitos.';
+            }
+
+            setFieldError($input, message);
+
+            if (message && !firstInvalid) {
+                firstInvalid = el;
+            }
+        });
+
+        ['#accept-to-terms-and-conditions', '#accept-to-privacy-policy'].forEach((selector) => {
+            const $check = $(selector);
+            const missing = $check.length && !$check.prop('checked');
+
+            $check.closest('.bk-check').toggleClass('is-invalid', Boolean(missing));
+
+            if (missing && !firstInvalid) {
+                firstInvalid = $check[0];
+            }
+        });
+
+        const $captcha = $('#captcha-text');
+
+        if ($captcha.length) {
+            const missing = !String($captcha.val() || '').trim();
+
+            setFieldError($captcha, missing ? 'Escribe el código de la imagen.' : '');
+
+            if (missing && !firstInvalid) {
+                firstInvalid = $captcha[0];
+            }
+        }
+
+        if (firstInvalid) {
+            firstInvalid.focus({preventScroll: true});
+            firstInvalid.scrollIntoView({block: 'center', behavior: 'smooth'});
+        }
+
+        return !firstInvalid;
+    }
+
+    function customerTimezone() {
+        const browser = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        if (browser && moment.tz.zone(browser)) {
+            return browser;
+        }
+
+        const provider = providers.find((item) => item.id === Number(state.providerId));
+
+        return provider?.timezone || vars('default_timezone') || 'America/Santiago';
+    }
+
+    function postData() {
+        const item = service(state.serviceId);
+        const start = moment(state.date + ' ' + state.time, 'YYYY-MM-DD HH:mm');
+        const value = (id) => String($('#' + id).val() ?? '').trim();
+
+        const data = {
+            customer: {
+                first_name: value('first-name'),
+                last_name: value('last-name'),
+                email: value('email'),
+                phone_number: value('phone-number'),
+                address: value('address'),
+                city: value('city'),
+                zip_code: value('zip-code'),
+                timezone: customerTimezone(),
+                custom_field_1: value('custom-field-1'),
+                custom_field_2: value('custom-field-2'),
+                custom_field_3: value('custom-field-3'),
+                custom_field_4: value('custom-field-4'),
+                custom_field_5: value('custom-field-5'),
+            },
+            appointment: {
+                start_datetime: start.format('YYYY-MM-DD HH:mm:ss'),
+                end_datetime: start.clone().add(item.duration, 'minutes').format('YYYY-MM-DD HH:mm:ss'),
+                notes: value('notes'),
+                is_unavailability: false,
+                id_users_provider: state.providerId,
+                id_services: state.serviceId,
+            },
+            manage_mode: Number(manageMode),
+        };
+
+        if (manageMode) {
+            data.appointment.id = appointmentData.id;
+            data.customer.id = vars('customer_data').id;
+        }
+
+        return data;
+    }
+
+    async function submit() {
+        if (state.saving || !validateForm()) {
+            return;
+        }
+
+        const data = postData();
+        const $captcha = $('#captcha-text');
+
+        state.saving = true;
+        renderBar();
+
+        try {
+            const response = await App.Http.Booking.registerAppointment(
+                data,
+                $captcha.length ? $captcha.val() : undefined,
+            );
+
+            if (response.captcha_verification === false) {
+                setFieldError($captcha, 'El código no coincide. Prueba con el nuevo.');
+                refreshCaptcha();
+                return;
+            }
+
+            if (!manageMode) {
+                const remember = $('#bk-remember').prop('checked');
+                const {first_name, last_name, phone_number, email} = data.customer;
+
+                writeSavedCustomer(remember ? {first_name, last_name, phone_number, email} : null);
+            }
+
+            window.location.href = App.Utils.Url.siteUrl('booking_confirmation/of/' + response.appointment_hash);
+        } catch (error) {
+            showToast(error.message);
+
+            // Someone else took the hour: show the fresh hours of that day.
+            if (/disponible|available/i.test(error.message)) {
+                delete state.hours[availabilityKey() + '|' + state.date];
+                state.time = null;
+                goTo('time');
+            }
+
+            refreshCaptcha();
+        } finally {
+            state.saving = false;
+            renderBar();
+        }
+    }
+
+    function refreshCaptcha() {
+        $('#bk-captcha-img').attr('src', App.Utils.Url.siteUrl('captcha?' + Date.now()));
+    }
+
+    // Manage mode: cancel the appointment or delete the personal data ----------------------------------------
+
+    function openCancelSheet(open) {
+        $('#bk-backdrop, #bk-cancel-sheet').prop('hidden', !open);
+
+        if (open) {
+            $('#bk-cancel-reason').trigger('focus');
+        }
+    }
+
+    function confirmCancel() {
+        const $reason = $('#bk-cancel-reason');
+        const reason = String($reason.val() || '').trim();
+
+        setFieldError($reason, reason ? '' : 'Escribe el motivo para cancelar.');
+
+        if (!reason) {
+            return;
+        }
+
+        $('#hidden-cancellation-reason').val(reason);
+        $('#cancel-appointment-form').trigger('submit');
+    }
+
+    async function deletePersonalData() {
+        const $button = $('#bk-delete-data');
+
+        if (!state.deleteArmed) {
+            state.deleteArmed = true;
+            $button.text('Toca otra vez para borrar tus datos');
+            return;
+        }
+
+        try {
+            await App.Http.Booking.deletePersonalInformation(vars('customer_token'));
+            window.location.href = vars('base_url');
+        } catch (error) {
+            showToast(error.message);
+        }
+    }
+
+    // Events ----------------------------------------------------------------------------------------------------
+
+    function addEventListeners() {
+        $back.on('click', goBack);
+
+        window.addEventListener('popstate', (event) => {
+            const step = event.state && event.state.bkStep;
+
+            if (!step) {
+                return;
+            }
+
+            state.depth = event.state.depth || 0;
+
+            // Never show a step whose choices are missing (e.g. forward to "details" after changing the service).
+            if (step !== 'service' && !state.serviceId) {
+                render('service');
+            } else if (step === 'details' && !state.time) {
+                render('time');
+            } else {
+                render(step);
+            }
+        });
+
+        $search.on('input', () => {
+            state.keyword = $search.val();
+            renderServices();
+        });
+
+        $services.on('click', '[data-service]', (event) => {
+            selectService(Number(event.currentTarget.dataset.service));
+        });
+
+        $services.on('click', 'a[href^="#bk-family-"]', (event) => {
+            event.preventDefault();
+            document.querySelector(event.currentTarget.getAttribute('href'))?.scrollIntoView({behavior: 'smooth'});
+        });
+
+        $pickedService.on('click', () => goBack());
+
+        $providerChips.on('click', '[data-provider]', (event) => {
+            const value = event.currentTarget.dataset.provider;
+
+            state.providerId = value === ANY_PROVIDER ? ANY_PROVIDER : Number(value);
+            state.date = null;
+            state.time = null;
+            renderTimeStep();
+            renderBar();
+        });
+
+        $days.on('click', '.bk-day:not(:disabled)', (event) => {
+            selectDate(event.currentTarget.dataset.date);
+        });
+
+        $slots.on('click', '[data-time]', (event) => {
+            state.time = event.currentTarget.dataset.time;
+            $slots.find('[data-time]').attr('aria-checked', 'false');
+            $(event.currentTarget).attr('aria-checked', 'true');
+            renderBar();
+        });
+
+        $summary.on('click', '[data-goto]', () => goBack());
+
+        $next.on('click', () => {
+            if (state.step === 'time' && state.date && state.time) {
+                goTo('details');
+            } else if (state.step === 'details') {
+                submit();
+            }
+        });
+
+        $form.on('submit', (event) => {
+            event.preventDefault();
+            submit();
+        });
+
+        $form.on('input', 'input, textarea', (event) => {
+            if ($(event.target).hasClass('is-invalid')) {
+                setFieldError($(event.target), '');
+            }
+        });
+
+        $('#bk-captcha-refresh').on('click', refreshCaptcha);
+        $('#bk-cancel-open').on('click', () => openCancelSheet(true));
+        $('#bk-cancel-close, #bk-backdrop').on('click', () => openCancelSheet(false));
+        $('#bk-cancel-confirm').on('click', confirmCancel);
+        $('#bk-delete-data').on('click', deletePersonalData);
+
+        $(document).on('keydown', (event) => {
+            if (event.key === 'Escape' && !$('#bk-cancel-sheet').prop('hidden')) {
+                openCancelSheet(false);
+            }
+        });
+    }
+
+    function initializeCookieNotice() {
+        if (!Boolean(Number(vars('display_cookie_notice'))) || !window.cookieconsent) {
+            return;
+        }
+
+        cookieconsent.initialise({
+            palette: {
+                popup: {background: '#ffffff', text: '#3f4b59'},
+                button: {background: '#015288', text: '#ffffff'},
+            },
+            content: {
+                message: lang('website_using_cookies_to_ensure_best_experience'),
+                dismiss: 'OK',
+            },
+        });
     }
 
     /**
      * Initialize the module.
      */
     function initialize() {
-        if (Boolean(Number(vars('display_cookie_notice'))) && window?.cookieconsent) {
-            cookieconsent.initialise({
-                palette: {
-                    popup: {
-                        background: '#ffffffbd',
-                        text: '#666666',
-                    },
-                    button: {
-                        background: '#429a82',
-                        text: '#ffffff',
-                    },
-                },
-                content: {
-                    message: lang('website_using_cookies_to_ensure_best_experience'),
-                    dismiss: 'OK',
-                },
-            });
-
-            const $cookieNoticeLink = $('.cc-link');
-
-            $cookieNoticeLink.replaceWith(
-                $('<a/>', {
-                    'data-bs-toggle': 'modal',
-                    'data-bs-target': '#cookie-notice-modal',
-                    'href': '#',
-                    'class': 'cc-link',
-                    'text': $cookieNoticeLink.text(),
-                }),
-            );
-        }
-
-        manageMode = vars('manage_mode');
-
-        // Initialize page's components (tooltips, date pickers etc).
-        tippy('[data-tippy-content]');
-
-        let monthTimeout;
-
-        App.Utils.UI.initializeDatePicker($selectDate, {
-            inline: true,
-            minDate: moment().subtract(1, 'day').set({hours: 23, minutes: 59, seconds: 59}).toDate(),
-            maxDate: moment().add(vars('future_booking_limit'), 'days').toDate(),
-            onChange: (selectedDates) => {
-                App.Http.Booking.getAvailableHours(moment(selectedDates[0]).format('YYYY-MM-DD'));
-                App.Pages.Booking.updateConfirmFrame();
-            },
-
-            onMonthChange: (selectedDates, dateStr, instance) => {
-                $selectDate.parent().fadeTo(400, 0.3); // Change opacity during loading
-
-                if (monthTimeout) {
-                    clearTimeout(monthTimeout);
-                }
-
-                monthTimeout = setTimeout(() => {
-                    const previousMoment = moment(instance.selectedDates[0]);
-
-                    const displayedMonthMoment = moment(
-                        instance.currentYearElement.value +
-                            '-' +
-                            String(Number(instance.monthsDropdownContainer.value) + 1).padStart(2, '0') +
-                            '-01',
-                    );
-
-                    const monthChangeStep = detectDatepickerMonthChangeStep(previousMoment, displayedMonthMoment);
-
-                    App.Http.Booking.getUnavailableDates(
-                        $selectProvider.val(),
-                        $selectService.val(),
-                        displayedMonthMoment.format('YYYY-MM-DD'),
-                        monthChangeStep,
-                    );
-                }, 500);
-            },
-
-            onYearChange: (selectedDates, dateStr, instance) => {
-                setTimeout(() => {
-                    const previousMoment = moment(instance.selectedDates[0]);
-
-                    const displayedMonthMoment = moment(
-                        instance.currentYearElement.value +
-                            '-' +
-                            (Number(instance.monthsDropdownContainer.value) + 1) +
-                            '-01',
-                    );
-
-                    const monthChangeStep = detectDatepickerMonthChangeStep(previousMoment, displayedMonthMoment);
-
-                    App.Http.Booking.getUnavailableDates(
-                        $selectProvider.val(),
-                        $selectService.val(),
-                        displayedMonthMoment.format('YYYY-MM-DD'),
-                        monthChangeStep,
-                    );
-                }, 500);
-            },
-        });
-
-        App.Utils.UI.setDateTimePickerValue($selectDate, new Date());
-
-        const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const isTimezoneSupported = $selectTimezone.find(`option[value="${browserTimezone}"]`).length > 0;
-        $selectTimezone.val(isTimezoneSupported ? browserTimezone : 'UTC');
-
-        // Bind the event handlers (might not be necessary every time we use this class).
+        initializeCookieNotice();
         addEventListeners();
+        fillCustomer();
 
-        optimizeContactInfoDisplay();
+        let step = 'service';
 
-        // If the manage mode is true, the appointment data should be loaded by default.
-        if (manageMode) {
-            applyAppointmentData(vars('appointment_data'), vars('provider_data'), vars('customer_data'));
+        if (manageMode && appointmentData) {
+            const start = moment(appointmentData.start_datetime);
 
-            $('#wizard-frame-1')
-                .css({
-                    'visibility': 'visible',
-                    'display': 'none',
-                })
-                .fadeIn();
+            state.serviceId = Number(appointmentData.id_services);
+            state.providerId = Number(appointmentData.id_users_provider);
+            state.date = start.format('YYYY-MM-DD');
+            state.time = start.format('HH:mm');
+            step = service(state.serviceId) ? 'time' : 'service';
         } else {
-            // Check if a specific service was selected (via URL parameter).
-            const selectedServiceId = App.Utils.Url.queryParam('service');
+            // Links from blondor.cl open the chosen service directly (?service=62), optionally with a provider.
+            const fromLink = service(App.Utils.Url.queryParam('service'));
 
-            if (selectedServiceId && $selectService.find('option[value="' + selectedServiceId + '"]').length > 0) {
-                $selectService.val(selectedServiceId);
-            }
+            if (fromLink) {
+                state.serviceId = fromLink.id;
+                state.providerId = defaultProviderId(fromLink.id);
 
-            $selectService.trigger('change'); // Load the available hours.
+                const providerParam = Number(App.Utils.Url.queryParam('provider'));
 
-            // Check if a specific provider was selected.
-            const selectedProviderId = App.Utils.Url.queryParam('provider');
-
-            if (selectedProviderId && $selectProvider.find('option[value="' + selectedProviderId + '"]').length === 0) {
-                // Select a service of this provider in order to make the provider available in the select box.
-                for (const index in vars('available_providers')) {
-                    const provider = vars('available_providers')[index];
-
-                    if (provider.id === selectedProviderId && provider.services.length > 0) {
-                        $selectService.val(provider.services[0]).trigger('change');
-                    }
-                }
-            }
-
-            if (selectedProviderId && $selectProvider.find('option[value="' + selectedProviderId + '"]').length > 0) {
-                $selectProvider.val(selectedProviderId).trigger('change');
-            }
-
-            if (
-                (selectedServiceId && selectedProviderId) ||
-                (vars('available_services').length === 1 && vars('available_providers').length === 1)
-            ) {
-                if (!selectedServiceId) {
-                    $selectService.val(vars('available_services')[0].id).trigger('change');
+                if (providersFor(fromLink.id).some((provider) => provider.id === providerParam)) {
+                    state.providerId = providerParam;
                 }
 
-                if (!selectedProviderId) {
-                    $selectProvider.val(vars('available_providers')[0].id).trigger('change');
-                }
-
-                $('.active-step').removeClass('active-step');
-                $('#step-2').addClass('active-step');
-                $('#wizard-frame-1').hide();
-                $('#wizard-frame-2').fadeIn();
-
-                $selectService.closest('.wizard-frame').find('.button-next').trigger('click');
-
-                $(document).find('.book-step:first').hide();
-
-                $(document).find('.button-back:first').css('visibility', 'hidden');
-
-                $(document)
-                    .find('.book-step:not(:first)')
-                    .each((index, bookStepEl) =>
-                        $(bookStepEl)
-                            .find('strong')
-                            .text(index + 1),
-                    );
-            } else {
-                $('#wizard-frame-1')
-                    .css({
-                        'visibility': 'visible',
-                        'display': 'none',
-                    })
-                    .fadeIn();
+                step = 'time';
             }
-
-            prefillFromQueryParam('#first-name', 'first_name');
-            prefillFromQueryParam('#last-name', 'last_name');
-            prefillFromQueryParam('#email', 'email');
-            prefillFromQueryParam('#phone-number', 'phone');
-            prefillFromQueryParam('#address', 'address');
-            prefillFromQueryParam('#city', 'city');
-            prefillFromQueryParam('#zip-code', 'zip');
-        }
-    }
-
-    function prefillFromQueryParam(field, param) {
-        const $target = $(field);
-
-        if (!$target.length) {
-            return;
         }
 
-        $target.val(App.Utils.Url.queryParam(param));
-    }
-
-    /**
-     * Remove empty columns and center elements if needed.
-     */
-    function optimizeContactInfoDisplay() {
-        // If a column has only one control shown then move the control to the other column.
-
-        const $firstCol = $('#wizard-frame-3 .field-col:first');
-        const $firstColControls = $firstCol.find('.form-control');
-        const $secondCol = $('#wizard-frame-3 .field-col:last');
-        const $secondColControls = $secondCol.find('.form-control');
-
-        if ($firstColControls.length === 1 && $secondColControls.length > 1) {
-            $firstColControls.each((index, controlEl) => {
-                $(controlEl).parent().insertBefore($secondColControls.first().parent());
-            });
-        }
-
-        if ($secondColControls.length === 1 && $firstColControls.length > 1) {
-            $secondColControls.each((index, controlEl) => {
-                $(controlEl).parent().insertAfter($firstColControls.last().parent());
-            });
-        }
-
-        // Hide columns that do not have any controls displayed.
-
-        const $fieldCols = $(document).find('#wizard-frame-3 .field-col');
-
-        $fieldCols.each((index, fieldColEl) => {
-            const $fieldCol = $(fieldColEl);
-
-            if (!$fieldCol.find('.form-control').length) {
-                $fieldCol.hide();
-            }
-        });
-    }
-
-    /**
-     * Add the page event listeners.
-     */
-    function addEventListeners() {
-        /**
-         * Event: Timezone "Changed"
-         */
-        $selectTimezone.on('change', () => {
-            const date = App.Utils.UI.getDateTimePickerValue($selectDate);
-
-            if (!date) {
-                return;
-            }
-
-            App.Http.Booking.getAvailableHours(moment(date).format('YYYY-MM-DD'));
-
-            App.Pages.Booking.updateConfirmFrame();
-        });
-
-        /**
-         * Event: Selected Provider "Changed"
-         *
-         * Whenever the provider changes the available appointment date - time periods must be updated.
-         */
-        $selectProvider.on('change', (event) => {
-            const $target = $(event.target);
-
-            const todayDateTimeObject = new Date();
-            const todayDateTimeMoment = moment(todayDateTimeObject);
-
-            App.Utils.UI.setDateTimePickerValue($selectDate, todayDateTimeObject);
-
-            App.Http.Booking.getUnavailableDates(
-                $target.val(),
-                $selectService.val(),
-                todayDateTimeMoment.format('YYYY-MM-DD'),
-            );
-            App.Pages.Booking.updateConfirmFrame();
-        });
-
-        /**
-         * Event: Selected Service "Changed"
-         *
-         * When the user clicks on a service, its available providers should
-         * become visible.
-         */
-        $selectService.on('change', (event) => {
-            const $target = $(event.target);
-            const serviceId = $selectService.val();
-
-            $selectProvider.empty();
-
-            $selectProvider.append(new Option(lang('please_select'), ''));
-
-            vars('available_providers').forEach((provider) => {
-                // If the current provider is able to provide the selected service, add him to the list box.
-                const canServeService =
-                    provider.services.filter((providerServiceId) => Number(providerServiceId) === Number(serviceId))
-                        .length > 0;
-
-                if (canServeService) {
-                    $selectProvider.append(new Option(provider.first_name + ' ' + provider.last_name, provider.id));
-                }
-            });
-
-            // Add the "Any Provider" entry.
-            if ($selectProvider.find('option').length > 1 && vars('display_any_provider') === '1') {
-                $(new Option(lang('any_provider'), 'any-provider')).insertAfter($selectProvider.find('option:first'));
-            }
-
-            App.Http.Booking.getUnavailableDates(
-                $selectProvider.val(),
-                $target.val(),
-                moment(App.Utils.UI.getDateTimePickerValue($selectDate)).format('YYYY-MM-DD'),
-            );
-
-            App.Pages.Booking.updateConfirmFrame();
-
-            App.Pages.Booking.updateServiceDescription(serviceId);
-        });
-
-        /**
-         * Event: Next Step Button "Clicked"
-         *
-         * This handler is triggered every time the user pressed the "next" button on the book wizard.
-         * Some special tasks might be performed, depending on the current wizard step.
-         */
-        $('.button-next').on('click', (event) => {
-            const $target = $(event.currentTarget);
-
-            // If we are on the first step and there is no provider selected do not continue with the next step.
-            if ($target.attr('data-step_index') === '1' && !$selectProvider.val()) {
-                return;
-            }
-
-            // If we are on the 2nd tab then the user should have an appointment hour selected.
-            if ($target.attr('data-step_index') === '2') {
-                if (!$('.selected-hour').length) {
-                    if (!$('#select-hour-prompt').length) {
-                        $('<div/>', {
-                            'id': 'select-hour-prompt',
-                            'class': 'text-danger mb-4',
-                            'text': lang('appointment_hour_missing'),
-                        }).prependTo('#available-hours');
-                    }
-                    return;
-                }
-            }
-
-            // If we are on the 3rd tab then we will need to validate the user's input before proceeding to the next
-            // step.
-            if ($target.attr('data-step_index') === '3') {
-                if (!App.Pages.Booking.validateCustomerForm()) {
-                    return; // Validation failed, do not continue.
-                } else {
-                    App.Pages.Booking.updateConfirmFrame();
-                }
-            }
-
-            // Display the next step tab (uses jquery animation effect).
-            const nextTabIndex = parseInt($target.attr('data-step_index')) + 1;
-
-            $target
-                .parents()
-                .eq(1)
-                .fadeOut(() => {
-                    $('.active-step').removeClass('active-step');
-                    $('#step-' + nextTabIndex).addClass('active-step');
-                    $('#wizard-frame-' + nextTabIndex).fadeIn();
-                });
-
-            // Scroll to the top of the page. On a small screen, especially on a mobile device, this is very useful.
-            const scrollingElement = document.scrollingElement || document.body;
-            if (window.innerHeight < scrollingElement.scrollHeight) {
-                scrollingElement.scrollTop = 0;
-            }
-        });
-
-        /**
-         * Event: Back Step Button "Clicked"
-         *
-         * This handler is triggered every time the user pressed the "back" button on the
-         * book wizard.
-         */
-        $('.button-back').on('click', (event) => {
-            const prevTabIndex = parseInt($(event.currentTarget).attr('data-step_index')) - 1;
-
-            $(event.currentTarget)
-                .parents()
-                .eq(1)
-                .fadeOut(() => {
-                    $('.active-step').removeClass('active-step');
-                    $('#step-' + prevTabIndex).addClass('active-step');
-                    $('#wizard-frame-' + prevTabIndex).fadeIn();
-                });
-        });
-
-        /**
-         * Event: Available Hour "Click"
-         *
-         * Triggered whenever the user clicks on an available hour for his appointment.
-         */
-        $availableHours.on('click', '.available-hour', (event) => {
-            $availableHours.find('.selected-hour').removeClass('selected-hour');
-            $(event.target).addClass('selected-hour');
-            App.Pages.Booking.updateConfirmFrame();
-        });
-
-        if (manageMode) {
-            /**
-             * Event: Cancel Appointment Button "Click"
-             *
-             * When the user clicks the "Cancel" button this form is going to be submitted. We need
-             * the user to confirm this action because once the appointment is cancelled, it will be
-             * deleted from the database.
-             *
-             * @param {jQuery.Event} event
-             */
-            $('#cancel-appointment').on('click', () => {
-                const $cancelAppointmentForm = $('#cancel-appointment-form');
-
-                let $cancellationReason;
-
-                const buttons = [
-                    {
-                        text: lang('close'),
-                        click: (event, messageModal) => {
-                            messageModal.hide();
-                        },
-                    },
-                    {
-                        text: lang('confirm'),
-                        click: () => {
-                            if ($cancellationReason.val() === '') {
-                                $cancellationReason.css('border', '2px solid #DC3545');
-                                return;
-                            }
-                            $cancelAppointmentForm.find('#hidden-cancellation-reason').val($cancellationReason.val());
-                            $cancelAppointmentForm.submit();
-                        },
-                    },
-                ];
-
-                App.Utils.Message.show(
-                    lang('cancel_appointment_title'),
-                    lang('write_appointment_removal_reason'),
-                    buttons,
-                );
-
-                $cancellationReason = $('<textarea/>', {
-                    'class': 'form-control',
-                    'id': 'cancellation-reason',
-                    'rows': '3',
-                    'css': {
-                        'width': '100%',
-                    },
-                }).appendTo('#message-modal .modal-body');
-
-                return false;
-            });
-
-            $deletePersonalInformation.on('click', () => {
-                const buttons = [
-                    {
-                        text: lang('cancel'),
-                        click: (event, messageModal) => {
-                            messageModal.hide();
-                        },
-                    },
-                    {
-                        text: lang('delete'),
-                        click: () => {
-                            App.Http.Booking.deletePersonalInformation(vars('customer_token'));
-                        },
-                    },
-                ];
-
-                App.Utils.Message.show(
-                    lang('delete_personal_information'),
-                    lang('delete_personal_information_prompt'),
-                    buttons,
-                );
-            });
-        }
-
-        /**
-         * Event: Book Appointment Form "Submit"
-         *
-         * Before the form is submitted to the server we need to make sure that in the meantime the selected appointment
-         * date/time wasn't reserved by another customer or event.
-         *
-         * @param {jQuery.Event} event
-         */
-        $bookAppointmentSubmit.on('click', () => {
-            const $acceptToTermsAndConditions = $('#accept-to-terms-and-conditions');
-
-            $acceptToTermsAndConditions.removeClass('is-invalid');
-
-            if ($acceptToTermsAndConditions.length && !$acceptToTermsAndConditions.prop('checked')) {
-                $acceptToTermsAndConditions.addClass('is-invalid');
-                return;
-            }
-
-            const $acceptToPrivacyPolicy = $('#accept-to-privacy-policy');
-
-            $acceptToPrivacyPolicy.removeClass('is-invalid');
-
-            if ($acceptToPrivacyPolicy.length && !$acceptToPrivacyPolicy.prop('checked')) {
-                $acceptToPrivacyPolicy.addClass('is-invalid');
-                return;
-            }
-
-            App.Http.Booking.registerAppointment();
-        });
-
-        /**
-         * Event: Refresh captcha image.
-         */
-        $captchaTitle.on('click', 'button', () => {
-            $('.captcha-image').attr('src', App.Utils.Url.siteUrl('captcha?' + Date.now()));
-        });
-
-        $selectDate.on('mousedown', '.ui-datepicker-calendar td', () => {
-            setTimeout(() => {
-                App.Http.Booking.applyPreviousUnavailableDates();
-            }, 300);
-        });
-    }
-
-    /**
-     * This function validates the customer's data input. The user cannot continue without passing all the validation
-     * checks.
-     *
-     * @return {Boolean} Returns the validation result.
-     */
-    function validateCustomerForm() {
-        $('#wizard-frame-3 .is-invalid').removeClass('is-invalid');
-        $('#wizard-frame-3 label.text-danger').removeClass('text-danger');
-
-        // Validate required fields.
-        let missingRequiredField = false;
-
-        $('.required').each((index, requiredField) => {
-            if (!$(requiredField).val()) {
-                $(requiredField).addClass('is-invalid');
-                missingRequiredField = true;
-            }
-        });
-
-        if (missingRequiredField) {
-            $('#form-message').text(lang('fields_are_required'));
-            return false;
-        }
-
-        // Validate email address.
-        if ($email.val() && !App.Utils.Validation.email($email.val())) {
-            $email.addClass('is-invalid');
-            $('#form-message').text(lang('invalid_email'));
-            return false;
-        }
-
-        // Validate phone number.
-        const phoneNumber = $phoneNumber.val();
-
-        if (phoneNumber && !App.Utils.Validation.phone(phoneNumber)) {
-            $phoneNumber.addClass('is-invalid');
-            $('#form-message').text(lang('invalid_phone'));
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Every time this function is executed, it updates the confirmation page with the latest
-     * customer settings and input for the appointment booking.
-     */
-    function updateConfirmFrame() {
-        const serviceOptionText = $selectService.find('option:selected').text();
-        $('.display-selected-service').text(serviceOptionText).removeClass('invisible');
-
-        const providerOptionText = $selectProvider.find('option:selected').text();
-        $('.display-selected-provider').text(providerOptionText).removeClass('invisible');
-
-        if (!$availableHours.find('.selected-hour').text()) {
-            return; // No time is selected, skip the rest of this function...
-        }
-
-        // Render the appointment details
-
-        const serviceId = $selectService.val();
-
-        const service = vars('available_services').find(
-            (availableService) => Number(availableService.id) === Number(serviceId),
-        );
-
-        if (!service) {
-            return; // Service was not found
-        }
-
-        const selectedDateObject = App.Utils.UI.getDateTimePickerValue($selectDate);
-        const selectedDateMoment = moment(selectedDateObject);
-        const selectedDate = selectedDateMoment.format('YYYY-MM-DD');
-        const selectedTime = $availableHours.find('.selected-hour').text();
-        const selectedDateTime = `${selectedDate} ${selectedTime}`;
-
-        let formattedSelectedDate;
-
-        if (selectedDateObject) {
-            formattedSelectedDate = App.Utils.Date.format(
-                selectedDateTime,
-                vars('date_format'),
-                vars('time_format'),
-                true,
-            );
-        }
-
-        const timezoneOptionText = $selectTimezone.find('option:selected').text();
-
-        $('#appointment-details').html(`
-            <div>
-                <div class="mb-2 fw-bold fs-3">
-                    ${serviceOptionText}
-                </div> 
-                <div class="mb-2 fw-bold text-muted">
-                    ${providerOptionText}
-                </div>
-                <div class="mb-2">
-                    <i class="fas fa-calendar-day me-2"></i>
-                    ${formattedSelectedDate}
-                </div> 
-                <div class="mb-2">
-                    <i class="fas fa-clock me-2"></i>
-                    ${service.duration} ${lang('minutes')}
-                </div>
-                <div class="mb-2">
-                    <i class="fas fa-globe me-2"></i>
-                    ${timezoneOptionText}
-                </div> 
-                <div class="mb-2" ${!Number(service.price) ? 'hidden' : ''}>
-                    <i class="fas fa-cash-register me-2"></i>
-                    ${service.price_type === 'from' ? 'desde ' : ''}$${Math.round(Number(service.price)).toLocaleString('es-CL')} ${service.currency}
-                </div>
-            </div>     
-        `);
-
-        // Render the customer information
-
-        const firstName = App.Utils.String.escapeHtml($firstName.val());
-        const lastName = App.Utils.String.escapeHtml($lastName.val());
-        const fullName = `${firstName} ${lastName}`.trim();
-        const email = App.Utils.String.escapeHtml($email.val());
-        const phoneNumber = App.Utils.String.escapeHtml($phoneNumber.val());
-        const address = App.Utils.String.escapeHtml($address.val());
-        const city = App.Utils.String.escapeHtml($city.val());
-        const zipCode = App.Utils.String.escapeHtml($zipCode.val());
-
-        const addressParts = [];
-
-        if (city) {
-            addressParts.push(city);
-        }
-
-        if (zipCode) {
-            addressParts.push(zipCode);
-        }
-
-        $('#customer-details').html(`
-            <div>
-                <div class="mb-2 fw-bold fs-3">
-                    ${lang('contact_info')}
-                </div>
-                <div class="mb-2 fw-bold text-muted" ${!fullName ? 'hidden' : ''}>
-                    ${fullName}
-                </div>
-                <div class="mb-2" ${!email ? 'hidden' : ''}>
-                    ${email}
-                </div>
-                <div class="mb-2" ${!email ? 'hidden' : ''}>
-                    ${phoneNumber}
-                </div>
-                <div class="mb-2" ${!address ? 'hidden' : ''}>
-                    ${address}
-                </div>
-                <div class="mb-2" ${!addressParts.length ? 'hidden' : ''}>
-                    ${addressParts.join(', ')}
-                </div>
-            </div>
-        `);
-
-        // Update appointment form data for submission to server when the user confirms the appointment.
-
-        const data = {};
-
-        data.customer = {
-            last_name: $lastName.val(),
-            first_name: $firstName.val(),
-            email: $email.val(),
-            phone_number: $phoneNumber.val(),
-            address: $address.val(),
-            city: $city.val(),
-            zip_code: $zipCode.val(),
-            timezone: $selectTimezone.val(),
-            custom_field_1: $customField1.val(),
-            custom_field_2: $customField2.val(),
-            custom_field_3: $customField3.val(),
-            custom_field_4: $customField4.val(),
-            custom_field_5: $customField5.val(),
-        };
-
-        data.appointment = {
-            start_datetime:
-                moment(App.Utils.UI.getDateTimePickerValue($selectDate)).format('YYYY-MM-DD') +
-                ' ' +
-                moment($('.selected-hour').data('value'), 'HH:mm').format('HH:mm') +
-                ':00',
-            end_datetime: calculateEndDatetime(),
-            notes: $notes.val(),
-            is_unavailability: false,
-            id_users_provider: $selectProvider.val(),
-            id_services: $selectService.val(),
-        };
-
-        data.manage_mode = Number(manageMode);
-
-        if (manageMode) {
-            data.appointment.id = vars('appointment_data').id;
-            data.customer.id = vars('customer_data').id;
-        }
-
-        $('input[name="post_data"]').val(JSON.stringify(data));
-    }
-
-    /**
-     * This method calculates the end datetime of the current appointment.
-     *
-     * End datetime is depending on the service and start datetime fields.
-     *
-     * @return {String} Returns the end datetime in string format.
-     */
-    function calculateEndDatetime() {
-        // Find selected service duration.
-        const serviceId = $selectService.val();
-
-        const service = vars('available_services').find(
-            (availableService) => Number(availableService.id) === Number(serviceId),
-        );
-
-        // Add the duration to the start datetime.
-        const selectedDate = moment(App.Utils.UI.getDateTimePickerValue($selectDate)).format('YYYY-MM-DD');
-
-        const selectedHour = $('.selected-hour').data('value'); // HH:mm
-
-        const startMoment = moment(selectedDate + ' ' + selectedHour);
-
-        let endMoment;
-
-        if (service.duration && startMoment) {
-            endMoment = startMoment.clone().add({'minutes': parseInt(service.duration)});
-        } else {
-            endMoment = moment();
-        }
-
-        return endMoment.format('YYYY-MM-DD HH:mm:ss');
-    }
-
-    /**
-     * This method applies the appointment's data to the wizard so
-     * that the user can start making changes on an existing record.
-     *
-     * @param {Object} appointment Selected appointment's data.
-     * @param {Object} provider Selected provider's data.
-     * @param {Object} customer Selected customer's data.
-     *
-     * @return {Boolean} Returns the operation result.
-     */
-    function applyAppointmentData(appointment, provider, customer) {
-        try {
-            // Select Service & Provider
-            $selectService.val(appointment.id_services).trigger('change');
-            $selectProvider.val(appointment.id_users_provider);
-
-            // Set Appointment Date
-            const startMoment = moment(appointment.start_datetime);
-            App.Utils.UI.setDateTimePickerValue($selectDate, startMoment.toDate());
-            App.Http.Booking.getAvailableHours(startMoment.format('YYYY-MM-DD'));
-
-            // Apply Customer's Data
-            $lastName.val(customer.last_name);
-            $firstName.val(customer.first_name);
-            $email.val(customer.email);
-            $phoneNumber.val(customer.phone_number);
-            $address.val(customer.address);
-            $city.val(customer.city);
-            $zipCode.val(customer.zip_code);
-            if (customer.timezone) {
-                $selectTimezone.val(customer.timezone);
-            }
-            const appointmentNotes = appointment.notes !== null ? appointment.notes : '';
-            $notes.val(appointmentNotes);
-
-            $customField1.val(customer.custom_field_1);
-            $customField2.val(customer.custom_field_2);
-            $customField3.val(customer.custom_field_3);
-            $customField4.val(customer.custom_field_4);
-            $customField5.val(customer.custom_field_5);
-
-            App.Pages.Booking.updateConfirmFrame();
-
-            return true;
-        } catch (exc) {
-            return false;
-        }
-    }
-
-    /**
-     * Update the service description and information.
-     *
-     * This method updates the HTML content with a brief description of the
-     * user selected service (only if available in db). This is useful for the
-     * customers upon selecting the correct service.
-     *
-     * @param {Number} serviceId The selected service record id.
-     */
-    function updateServiceDescription(serviceId) {
-        const $serviceDescription = $('#service-description');
-
-        $serviceDescription.empty();
-
-        const service = vars('available_services').find(
-            (availableService) => Number(availableService.id) === Number(serviceId),
-        );
-
-        if (!service) {
-            return; // Service not found
-        }
-
-        // Render the additional service information
-
-        const additionalInfoParts = [];
-
-        if (service.duration) {
-            additionalInfoParts.push(`${lang('duration')}: ${service.duration} ${lang('minutes')}`);
-        }
-
-        if (Number(service.price) > 0) {
-            additionalInfoParts.push(`${lang('price')}: ${service.price_type === 'from' ? 'desde ' : ''}$${Math.round(Number(service.price)).toLocaleString('es-CL')} ${service.currency}`);
-        }
-
-        if (service.location) {
-            additionalInfoParts.push(`${lang('location')}: ${service.location}`);
-        }
-
-        if (additionalInfoParts.length) {
-            $(`
-                <div class="mb-2 fst-italic">
-                    ${additionalInfoParts.join(', ')}
-                </div>
-            `).appendTo($serviceDescription);
-        }
-
-        // Render the service description
-
-        if (service.description?.length) {
-            const escapedDescription = App.Utils.String.escapeHtml(service.description);
-
-            const multiLineDescription = escapedDescription.replaceAll('\n', '<br/>');
-
-            $(`
-                <div class="text-muted">
-                    ${multiLineDescription}
-                </div>
-            `).appendTo($serviceDescription);
-        }
+        history.replaceState({bkStep: step, depth: 0}, '');
+        render(step);
     }
 
     document.addEventListener('DOMContentLoaded', initialize);
 
-    return {
-        manageMode,
-        updateConfirmFrame,
-        updateServiceDescription,
-        validateCustomerForm,
-    };
+    return {};
 })();

@@ -56,8 +56,24 @@ class Booking_confirmation extends EA_Controller
 
         $add_to_google_url = $this->google_sync->get_add_to_google_url($appointment['id']);
 
+        // Blondor: resumen de la cita para la pantalla de confirmación móvil.
+        $service = $this->services_model->find($appointment['id_services']);
+        $provider = $this->providers_model->find($appointment['id_users_provider']);
+        $customer = $this->customers_model->find($appointment['id_users_customer']);
+        $price = (float) ($appointment['price'] ?? 0) ?: (float) ($service['price'] ?? 0);
+
         html_vars([
             'page_title' => lang('success'),
+            'summary' => [
+                'service' => $service['name'],
+                'provider' => trim($provider['first_name'] . ' ' . $provider['last_name']),
+                'start' => $appointment['start_datetime'],
+                'duration' => (int) $service['duration'],
+                'price' => $price,
+                'price_type' => $service['price_type'] ?? 'fixed',
+                'email' => $customer['email'] ?? '',
+                'manage_url' => site_url('booking/reschedule/' . $appointment['hash']),
+            ],
             'company_color' => setting('company_color'),
             'google_analytics_code' => setting('google_analytics_code'),
             'matomo_analytics_url' => setting('matomo_analytics_url'),

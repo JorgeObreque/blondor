@@ -266,6 +266,9 @@ class Booking extends EA_Controller
             'customer_data' => $customer,
             'default_language' => setting('default_language'),
             'default_timezone' => setting('default_timezone'),
+            'popular_service_ids' => $this->popular_service_ids(),
+            'customer_token' => $customer_token,
+            'require_captcha' => (bool) setting('require_captcha'),
         ]);
 
         html_vars([
@@ -739,6 +742,30 @@ class Booking extends EA_Controller
         } catch (Throwable $e) {
             json_exception($e);
         }
+    }
+
+    /**
+     * Blondor: the most booked services of the last months, shown first on the booking page (as "Más pedidos").
+     *
+     * @param int $limit
+     *
+     * @return array
+     */
+    protected function popular_service_ids(int $limit = 4): array
+    {
+        $rows = $this->db
+            ->select('id_services, COUNT(*) AS total')
+            ->from('appointments')
+            ->where('is_unavailability', false)
+            ->where('id_services IS NOT NULL', null, false)
+            ->where('start_datetime >=', date('Y-m-d', strtotime('-6 months')))
+            ->group_by('id_services')
+            ->order_by('total', 'DESC')
+            ->limit($limit)
+            ->get()
+            ->result_array();
+
+        return array_map(fn($row) => (int) $row['id_services'], $rows);
     }
 
     /**

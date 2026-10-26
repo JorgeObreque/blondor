@@ -1,43 +1,81 @@
-<?php extend('layouts/message_layout'); ?>
+<?php
+/**
+ * Blondor - Reserva confirmada (móvil primero).
+ *
+ * @var array $summary
+ */
+
+extend('layouts/booking_mobile_layout');
+
+$summary = vars('summary');
+$start = new DateTime($summary['start']);
+$days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+$months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+$when = ucfirst($days[(int) $start->format('w')]) . ' ' . $start->format('j') . ' de ' . $months[(int) $start->format('n') - 1];
+$time = setting('time_format') === 'regular'
+    ? $start->format('g:i') . ($start->format('H') < 12 ? ' a. m.' : ' p. m.')
+    : $start->format('H:i');
+$duration = $summary['duration'] < 60
+    ? $summary['duration'] . ' min'
+    : floor($summary['duration'] / 60) . ' h' . ($summary['duration'] % 60 ? ' ' . $summary['duration'] % 60 . ' min' : '');
+$price = $summary['price'] > 0
+    ? ($summary['price_type'] === 'from' ? 'desde ' : '') . '$' . number_format($summary['price'], 0, ',', '.')
+    : '';
+$address = 'Av. Apoquindo 4900, local 53, Las Condes';
+
+// "MECHAS CON PAPEL" → "Mechas con papel", igual que en la reserva.
+$service_name = trim(preg_replace('/\s+/', ' ', $summary['service']));
+$service_name = $service_name === mb_strtoupper($service_name) ? mb_strtolower($service_name) : $service_name;
+$service_name = mb_strtoupper(mb_substr($service_name, 0, 1)) . mb_substr($service_name, 1);
+?>
 
 <?php section('content'); ?>
 
-<div>
-    <img id="success-icon" class="mt-0 mb-5" src="<?= base_url('assets/img/success.png') ?>" alt="success"/>
-</div>
+<div class="bk" data-step="done">
+    <header class="bk-top">
+        <div class="bk-top__row">
+            <a class="bk-brand" href="https://blondor.cl">
+                <img src="<?= asset_url('assets/img/blondor-mark.png') ?>" alt="">
+                <span>BLONDOR</span>
+            </a>
+        </div>
+        <h1 class="bk-top__title">Reserva lista</h1>
+    </header>
 
-<div class="mb-5">
-    <h4 class="mb-5"><?= lang('appointment_registered') ?></h4>
+    <main class="bk-done">
+        <div class="bk-done__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>
+        </div>
 
-    <p>
-        <?= lang('appointment_details_was_sent_to_you') ?>
-    </p>
+        <h2>¡Te esperamos!</h2>
 
-    <p class="mb-5 text-muted">
-        <small>
-            <?= lang('check_spam_folder') ?>
-        </small>
-    </p>
+        <div class="bk-summary">
+            <p class="bk-summary__service"><?= e($service_name) ?></p>
+            <p class="bk-summary__when"><?= e($when) ?>, <?= e($time) ?></p>
+            <ul class="bk-summary__facts">
+                <li><?= e($duration) ?></li>
+                <?php if ($price): ?><li><?= e($price) ?></li><?php endif; ?>
+            </ul>
+            <p class="bk-summary__where"><?= e($address) ?></p>
+        </div>
 
-    <!-- <a href="<?= site_url() ?>" class="btn btn-primary btn-large">
-        <i class="fas fa-calendar-alt me-2"></i>
-        <?= lang('go_to_booking_page') ?>
-    </a> -->
+        <?php if (!empty($summary['email'])): ?>
+            <p class="bk-done__note">Te enviamos la confirmación a <strong><?= e($summary['email']) ?></strong>. Si no la ves, revisa la carpeta de spam.</p>
+        <?php endif; ?>
 
-    <a href="<?= vars('add_to_google_url') ?>" id="add-to-google-calendar" class="btn btn-primary" target="_blank">
-        <i class="fas fa-plus me-2"></i>
-        <?= lang('add_to_google_calendar') ?>
-    </a>
+        <div class="bk-done__actions">
+            <a class="bk-primary" href="<?= e(vars('add_to_google_url')) ?>" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M12 13v4M10 15h4"/></svg>
+                Agregar a mi calendario
+            </a>
+            <a class="bk-secondary" href="https://maps.google.com/?q=<?= rawurlencode($address) ?>" target="_blank" rel="noopener">
+                Cómo llegar
+            </a>
+            <a class="bk-secondary" href="<?= e($summary['manage_url']) ?>">
+                Cambiar o cancelar la cita
+            </a>
+        </div>
+    </main>
 </div>
 
 <?php end_section('content'); ?>
-
-<?php section('scripts'); ?>
-
-<?php component('google_analytics_script', ['google_analytics_code' => vars('google_analytics_code')]); ?>
-<?php component('matomo_analytics_script', [
-    'matomo_analytics_url' => vars('matomo_analytics_url'),
-    'matomo_analytics_site_id' => vars('matomo_analytics_site_id'),
-]); ?>
-
-<?php end_section('scripts'); ?>

@@ -13,7 +13,10 @@ for src in \
   assets/css/pages/service_prices.css \
   assets/js/pages/register_service.js \
   assets/js/http/register_service_http_client.js \
-  assets/js/pages/providers.js; do
+  assets/js/pages/providers.js \
+  assets/js/pages/booking.js \
+  assets/js/http/booking_http_client.js \
+  assets/css/pages/booking.css; do
   dst="${src%.*}.min.${src##*.}"
   cp "$src" "$dst"
   echo "$dst"
