@@ -180,6 +180,82 @@
         }
     }
 
+    /**
+     * Gift card form: fixed amounts or a free one, posted to the agenda, which sends the buyer to Webpay.
+     */
+    function setupGiftCards() {
+        const form = document.getElementById('gc-form');
+
+        if (!form) {
+            return;
+        }
+
+        const MIN = 10000;
+        const MAX = 500000;
+        const other = document.getElementById('gc-other');
+        const otherInput = document.getElementById('gc-other-amount');
+        const amount = document.getElementById('gc-amount');
+        const pay = document.getElementById('gc-pay');
+        const error = document.getElementById('gc-error');
+
+        form.action = AGENDA + '/index.php/gift_cards/checkout';
+
+        function currentAmount() {
+            const option = form.querySelector('input[name="amount_option"]:checked').value;
+
+            return option === 'other' ? Number(otherInput.value.replace(/\D/g, '')) || 0 : Number(option);
+        }
+
+        function update() {
+            const isOther = form.querySelector('input[name="amount_option"]:checked').value === 'other';
+            const value = currentAmount();
+
+            other.hidden = !isOther;
+            amount.value = value;
+            pay.textContent = value ? 'Pagar ' + money(value) + ' con Webpay' : 'Pagar con Webpay';
+            error.hidden = true;
+        }
+
+        form.addEventListener('change', update);
+
+        otherInput.addEventListener('input', () => {
+            const digits = otherInput.value.replace(/\D/g, '');
+
+            otherInput.value = digits ? money(Number(digits)) : '';
+            update();
+        });
+
+        form.addEventListener('submit', (event) => {
+            const value = currentAmount();
+            let message = '';
+
+            if (value < MIN || value > MAX) {
+                message = 'El monto debe estar entre ' + money(MIN) + ' y ' + money(MAX) + '.';
+            } else if (!form.checkValidity()) {
+                message = 'Completa tu nombre y un correo válido: ahí te enviamos la gift card.';
+            }
+
+            if (message) {
+                event.preventDefault();
+                error.textContent = message;
+                error.hidden = false;
+                return;
+            }
+
+            pay.disabled = true;
+            pay.textContent = 'Abriendo Webpay…';
+        });
+
+        // Volver con el botón atrás desde Webpay no debe dejar el botón bloqueado.
+        window.addEventListener('pageshow', () => {
+            pay.disabled = false;
+            update();
+        });
+
+        update();
+    }
+
     linkBookingButtons();
     loadCatalog();
+    setupGiftCards();
 })();

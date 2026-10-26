@@ -16,7 +16,11 @@ for src in \
   assets/js/pages/providers.js \
   assets/js/pages/booking.js \
   assets/js/http/booking_http_client.js \
-  assets/css/pages/booking.css; do
+  assets/css/pages/booking.css \
+  assets/css/pages/gift_card.css \
+  assets/js/pages/gift_card_admin.js \
+  assets/js/http/gift_card_admin_http_client.js \
+  assets/css/pages/gift_card_admin.css; do
   dst="${src%.*}.min.${src##*.}"
   cp "$src" "$dst"
   echo "$dst"

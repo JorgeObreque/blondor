@@ -1,0 +1,106 @@
+/* ----------------------------------------------------------------------------
+ * Blondor - Página de la gift card (sobre booking.css)
+ * ---------------------------------------------------------------------------- */
+
+.gc-text {
+  margin: 0;
+  color: var(--bk-ink-2);
+}
+
+.gc-card {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border-radius: 22px;
+  background: linear-gradient(150deg, var(--bk-blue) 0%, var(--bk-blue-dark) 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 14px 30px rgba(1, 82, 136, 0.25);
+}
+
+.gc-card::after {
+  content: "✦";
+  position: absolute;
+  right: -14px;
+  top: -40px;
+  font-size: 160px;
+  line-height: 1;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.gc-card p {
+  margin: 0;
+}
+
+.gc-card__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #c9dcee;
+}
+
+.gc-card__top img {
+  width: 26px;
+}
+
+.gc-card__amount {
+  font-family: var(--bk-display);
+  font-size: 46px;
+  line-height: 1;
+}
+
+.gc-card__people {
+  font-size: 15px;
+  color: #dde8f2;
+}
+
+.gc-card__people strong {
+  color: #fff;
+}
+
+.gc-card__message {
+  font-size: 15px;
+  font-style: italic;
+  color: var(--bk-cream);
+}
+
+.gc-card__code {
+  margin-top: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bk-cream);
+  color: var(--bk-blue-dark);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gc-card__code span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.gc-card__code strong {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+
+.gc-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--bk-ink-2);
+}

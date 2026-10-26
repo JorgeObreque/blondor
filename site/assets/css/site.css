@@ -71,6 +71,10 @@ img {
   max-width: 100%;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 a {
   color: inherit;
 }
@@ -766,6 +770,138 @@ p {
 
 .dock .btn--wa {
   padding: 0 18px;
+}
+
+/* Gift cards (sobre banda azul) ------------------------------------------------ */
+
+.gc {
+  display: grid;
+  gap: 24px;
+}
+
+.gc__lead {
+  margin-top: 10px;
+  max-width: 52ch;
+  color: var(--on-blue-muted);
+}
+
+.gc-form {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.gc-amounts {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gc-amounts legend {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gc-amount input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gc-amount span {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.gc-amount input:checked + span {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #0f5289;
+}
+
+.gc-amount input:focus-visible + span {
+  outline: 3px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.gc-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.gc-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gc-field small {
+  font-weight: 500;
+  color: var(--on-blue-muted);
+}
+
+.gc-field input,
+.gc-field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0c2d4c;
+  font: 500 16px/1.4 var(--font-body);
+}
+
+.gc-field textarea {
+  resize: vertical;
+}
+
+.gc-error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdecea;
+  color: #b42318;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gc-pay {
+  width: 100%;
+}
+
+.gc-secure {
+  font-size: 13px;
+  text-align: center;
+  color: var(--on-blue-muted);
+}
+
+@media (min-width: 860px) {
+  .gc {
+    grid-template-columns: 0.8fr 1.2fr;
+    align-items: start;
+    gap: 48px;
+  }
+
+  .gc-amounts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 /* Escritorio ------------------------------------------------------------------- */

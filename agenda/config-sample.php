@@ -50,4 +50,15 @@ class Config
     const GOOGLE_SYNC_FEATURE = false; // Enter TRUE or FALSE
     const GOOGLE_CLIENT_ID = '';
     const GOOGLE_CLIENT_SECRET = '';
+
+    // ------------------------------------------------------------------------
+    // BLONDOR - WEBPAY PLUS (gift cards)
+    // ------------------------------------------------------------------------
+    // 'integration' (pruebas, sin dinero real) o 'production'. Si se dejan vacías, la venta online de gift cards
+    // queda desactivada. Credenciales públicas de integración:
+    // 597055555532 / 579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C
+
+    const WEBPAY_ENVIRONMENT = '';
+    const WEBPAY_COMMERCE_CODE = '';
+    const WEBPAY_API_KEY = '';
 }

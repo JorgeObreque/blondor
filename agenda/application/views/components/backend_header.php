@@ -50,6 +50,15 @@
             </li>
 
             <?php $hidden = can('view', PRIV_APPOINTMENTS) ? '' : 'd-none'; ?>
+            <?php $active = uri_string() === 'giftcards' ? 'active' : ''; ?>
+            <li class="nav-item <?= $active . $hidden ?>">
+                <a href="<?= site_url('giftcards') ?>" class="nav-link">
+                    <i class="fas fa-gift me-2"></i>
+                    Gift cards
+                </a>
+            </li>
+
+            <?php $hidden = can('view', PRIV_APPOINTMENTS) ? '' : 'd-none'; ?>
             <?php $active = $active_menu == PRIV_APPOINTMENTS ? 'active' : ''; ?>
             <li class="nav-item <?= $active . $hidden ?>">
                 <a href="<?= site_url(

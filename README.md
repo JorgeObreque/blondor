@@ -64,6 +64,14 @@ ssh blondor.web 'cd ~/blondor && git pull --ff-only && cd agenda && php index.ph
 Fuera de git en el servidor: `agenda/config.php`, `agenda/.well-known`, `agenda/cgi-bin`, el contenido de
 `agenda/storage` y, en `public_html`, `.well-known`, `cgi-bin`, `agenda_old` y las páginas del hosting.
 
+## Gift cards (Webpay Plus)
+
+- Venta en blondor.cl (sección «Gift cards») → `agenda/gift_cards/checkout` → Webpay → la gift card se activa solo
+  cuando Transbank confirma el pago desde el servidor, y se envía por correo. Canje y gift cards del salón en `/giftcards`.
+- Credenciales en `agenda/config.php` (`WEBPAY_ENVIRONMENT`, `WEBPAY_COMMERCE_CODE`, `WEBPAY_API_KEY`, ver
+  `config-sample.php`). En local: ambiente de pruebas de Transbank (tarjeta 4051 8856 0044 6623, CVV 123,
+  RUT 11.111.111-1, clave 123). Sin credenciales la venta online queda desactivada.
+
 ## Notas
 
 - El sitio lee servicios y precios de la agenda (`agenda.blondor.cl/index.php/public_catalog`, solo lectura):

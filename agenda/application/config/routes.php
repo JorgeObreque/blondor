@@ -57,6 +57,10 @@ $route['precios'] = 'service_prices';
 
 $route['precios/(:any)'] = 'service_prices/$1';
 
+$route['giftcards'] = 'gift_card_admin';
+
+$route['giftcards/(:any)'] = 'gift_card_admin/$1';
+
 $route['404_override'] = '';
 
 $route['translate_uri_dashes'] = false;

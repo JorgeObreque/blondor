@@ -1,0 +1,315 @@
+/* ----------------------------------------------------------------------------
+ * Blondor - Gift cards (backoffice)
+ *
+ * Usa los colores y componentes de agenda.css (cabecera, hojas, aviso, botones); aquí solo lo propio de la página.
+ * ---------------------------------------------------------------------------- */
+
+.gca a.agenda-iconbtn {
+  text-decoration: none;
+}
+
+.gca-search {
+  height: 46px;
+  margin: 0;
+  border-radius: 23px;
+  background: #fff;
+  color: var(--ag-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+}
+
+.gca-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ag-ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.gca-filters {
+  display: flex;
+  gap: 8px;
+  padding: 14px 16px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.gca-list {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gca-item {
+  width: 100%;
+  border: 1px solid var(--ag-line);
+  border-radius: var(--ag-radius);
+  background: var(--ag-surface);
+  color: inherit;
+  text-align: left;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gca-item:hover,
+.gca-item:focus-visible {
+  border-color: var(--ag-brand);
+}
+
+.gca-item__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gca-item__code {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gca-item__who {
+  font-size: 14px;
+  color: var(--ag-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gca-item__meta {
+  font-size: 12px;
+  color: var(--ag-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gca-item__amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  white-space: nowrap;
+}
+
+.gca-item__amount strong {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ag-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.gca-item__amount small {
+  font-size: 12px;
+  color: var(--ag-muted);
+}
+
+.gca-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.gca-pill--active {
+  background: var(--ag-ok-soft);
+  color: var(--ag-ok);
+}
+
+.gca-pill--used {
+  background: var(--ag-brand-soft);
+  color: var(--ag-brand);
+}
+
+.gca-pill--muted {
+  background: var(--ag-line-2);
+  color: var(--ag-muted);
+}
+
+.gca-hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ag-muted);
+}
+
+.gca-optional {
+  font-weight: 500;
+  color: var(--ag-muted);
+}
+
+.gca-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.gca-actions .agenda-primary {
+  flex: 1;
+}
+
+.gca-actions .agenda-secondary {
+  padding: 0 18px;
+}
+
+.gca-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Detalle ---------------------------------------------------------------------- */
+
+.gca-card {
+  border-radius: 18px;
+  background: var(--ag-brand);
+  color: #fff;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gca-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gca-card__channel {
+  font-size: 13px;
+  color: #c9dcee;
+}
+
+.gca-card__code {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 12px;
+  background: #fffce9;
+  color: var(--ag-brand-dark);
+  padding: 8px 12px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gca-card__code svg {
+  width: 18px;
+  height: 18px;
+}
+
+.gca-card__balance {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.gca-card__balance span {
+  font-size: 13px;
+  color: #c9dcee;
+}
+
+.gca-card__balance strong {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.gca-card__balance small {
+  font-size: 14px;
+  color: #c9dcee;
+}
+
+.gca-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gca-facts div {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.gca-facts dt {
+  font-weight: 700;
+  color: var(--ag-muted);
+}
+
+.gca-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gca-facts small {
+  color: var(--ag-muted);
+}
+
+.gca .gca-redeem h2,
+.gca .gca-history h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.gca-redeem__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.gca-redeem__row .wizard-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.gca-redeem__row .agenda-secondary {
+  padding: 0 18px;
+}
+
+.gca-history ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.gca-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--ag-line-2);
+  font-size: 15px;
+}
+
+.gca-history small {
+  color: var(--ag-muted);
+}
+
+.gca-history__after {
+  font-size: 13px;
+  color: var(--ag-muted);
+  white-space: nowrap;
+}
+
+/* Sin el pie del back office, igual que la agenda. */
+body:has(#gca-page) #footer {
+  display: none;
+}
