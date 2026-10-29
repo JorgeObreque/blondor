@@ -72,8 +72,12 @@
     }
 
     function renderPromo(services) {
-        const promo = services.filter((service) => PROMO.test(normalize(service.name)) && service.price > 0).sort((a, b) => a.price - b.price)[0];
         const section = document.getElementById('promo');
+        const button = document.getElementById('promo-book');
+        const promos = services.filter((service) => PROMO.test(normalize(service.name)) && service.price > 0);
+        // La promo destacada es la que trae la página; si ya no está activa, la más barata.
+        const promo = promos.find((service) => String(service.id) === button.dataset.book)
+            || promos.sort((a, b) => a.price - b.price)[0];
 
         if (!promo) {
             section.hidden = true;
@@ -90,7 +94,6 @@
         document.getElementById('promo-price').textContent = (promo.price_type === 'from' ? 'desde ' : '') + money(promo.price);
         document.getElementById('promo-fine').textContent = 'Dura ' + duration(promo.duration) + '.';
 
-        const button = document.getElementById('promo-book');
         button.dataset.book = promo.id;
         button.href = bookUrl(promo.id);
     }
