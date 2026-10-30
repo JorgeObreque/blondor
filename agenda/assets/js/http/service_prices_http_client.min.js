@@ -16,6 +16,11 @@ App.Http.ServicePrices = (function () {
      * @return {Promise<Object>}
      */
     function save(changes) {
+        // A form post drops empty arrays: "no lengths" travels as an empty string.
+        changes = changes.map((change) =>
+            Array.isArray(change.variants) && !change.variants.length ? {...change, variants: ''} : change,
+        );
+
         return new Promise((resolve, reject) => {
             $.ajax({
                 url: App.Utils.Url.siteUrl('service_prices/save'),

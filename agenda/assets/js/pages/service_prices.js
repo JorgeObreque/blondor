@@ -60,6 +60,13 @@ App.Pages.ServicePrices = (function () {
 
     const TOP_COUNT = 6;
 
+    const HairLength = App.Utils.HairLength;
+
+    /**
+     * Suggested increase of each length over the short one (%), when a service starts being priced by length.
+     */
+    const LENGTH_INCREASE = {short: 0, medium: 15, long: 30, xlong: 45};
+
     const ICONS = {
         check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
         warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>',
@@ -109,6 +116,12 @@ App.Pages.ServicePrices = (function () {
     }
 
     function priceText(item) {
+        if (item.variants && item.variants.length) {
+            const prices = item.variants.map((variant) => variant.price);
+
+            return money(Math.min(...prices)) + '–' + money(Math.max(...prices));
+        }
+
         if (!(item.price > 0)) {
             return null;
         }
@@ -414,7 +427,7 @@ App.Pages.ServicePrices = (function () {
                     <span class="prices-row__text">
                         <span class="prices-row__title">${esc(state.filter === 'all' && !state.keyword ? variantName(item) : capitalize(item.name.trim()))}</span>
                         <span class="prices-row__sub">
-                            ${esc(usageText(item))} · ${duration(item.duration)}
+                            ${esc(usageText(item))} · ${duration(item.duration)}${item.variants.length ? ' · ' + item.variants.length + ' largos' : ''}
                             ${warn ? `<span class="prices-row__warn">· ${esc(warn)}</span>` : ''}
                         </span>
                     </span>
@@ -575,11 +588,91 @@ App.Pages.ServicePrices = (function () {
         openSheet($edit);
 
         // The price is what is edited most: focus it so the numeric keyboard opens right away.
-        setTimeout(() => $edit.find('#edit-price').trigger('focus'), 50);
+        setTimeout(() => $edit.find('#edit-price, [data-length-price]').first().trigger('focus'), 50);
+    }
+
+    /**
+     * Prices to start with when a service starts being priced by length: the short one is the current price and
+     * the others go up by LENGTH_INCREASE, rounded to $1.000.
+     */
+    function suggestedVariants(base) {
+        if (!(base > 0)) {
+            return [];
+        }
+
+        return HairLength.LENGTHS.map((length) => ({
+            hair_length: length.key,
+            price: length.key === 'short' ? base : Math.round((base * (1 + LENGTH_INCREASE[length.key] / 100)) / 1000) * 1000,
+            duration: null,
+        }));
+    }
+
+    /**
+     * One price (fixed or "desde"), or one price and optionally a duration per hair length.
+     */
+    function priceBody(item, lengths, base) {
+        if (!lengths) {
+            const price = base ?? item.price;
+
+            return `
+                <div class="prices-price__input">
+                    <span aria-hidden="true">$</span>
+                    <input type="text" id="edit-price" inputmode="numeric" autocomplete="off" aria-label="Precio"
+                           value="${price > 0 ? Math.round(price).toLocaleString('es-CL') : ''}"
+                           placeholder="0">
+                </div>
+                <div class="prices-segment" role="radiogroup" aria-label="Tipo de precio">
+                    <button type="button" role="radio" data-price-type="fixed" aria-checked="${item.price_type !== 'from'}">Precio fijo</button>
+                    <button type="button" role="radio" data-price-type="from" aria-checked="${item.price_type === 'from'}">Desde</button>
+                </div>
+                <p class="wizard-hint">«Desde» se muestra como «desde $X». Si el valor depende del largo del pelo, activa
+                    los diferentes largos: la clienta ve el precio exacto del suyo.</p>`;
+        }
+
+        const variants = {};
+        const start = item.variants.length ? item.variants : suggestedVariants(base ?? item.price);
+
+        start.forEach((variant) => (variants[variant.hair_length] = variant));
+
+        return `
+            <div class="prices-lengths">
+                ${HairLength.LENGTHS.map((length) => {
+                    const variant = variants[length.key];
+
+                    return `
+                        <div class="prices-length">
+                            <span class="prices-length__figure">${HairLength.figure(length.key)}</span>
+                            <span class="prices-length__text">
+                                <strong>${esc(length.label)}</strong>
+                                <span>${esc(length.hint)}</span>
+                            </span>
+                            <label class="prices-length__price">
+                                <span aria-hidden="true">$</span>
+                                <input type="text" inputmode="numeric" autocomplete="off" data-length-price="${length.key}"
+                                       aria-label="Precio ${esc(length.label.toLowerCase())}"
+                                       value="${variant ? Math.round(variant.price).toLocaleString('es-CL') : ''}"
+                                       placeholder="0">
+                            </label>
+                            <label class="prices-length__time">
+                                <input type="number" min="5" max="600" step="5" inputmode="numeric" data-length-duration="${length.key}"
+                                       aria-label="Duración ${esc(length.label.toLowerCase())} en minutos"
+                                       value="${variant && variant.duration ? variant.duration : ''}" placeholder="${item.duration}">
+                                <span>min</span>
+                            </label>
+                        </div>`;
+                }).join('')}
+            </div>
+            <p class="wizard-hint">${
+                item.variants.length
+                    ? ''
+                    : `Precios sugeridos: corto es el precio actual; mediano, largo y extra largo suben ${LENGTH_INCREASE.medium} %,
+                       ${LENGTH_INCREASE.long} % y ${LENGTH_INCREASE.xlong} %. Corrígelos si hace falta. `
+            }Deja vacío el largo que no se ofrece. Sin duración, usa la del servicio (abajo).</p>`;
     }
 
     function renderEdit() {
         const item = service(state.editId);
+        const lengths = item.variants.length > 0;
         const cat = category(item.category_id);
         const otherDuration = !DURATIONS.includes(item.duration);
         const remaining = state.queue ? state.queue.length : 0;
@@ -598,18 +691,15 @@ App.Pages.ServicePrices = (function () {
             }
             <form id="edit-form" class="wizard-form" novalidate>
                 <div class="prices-price">
-                    <label for="edit-price" class="prices-price__label">Precio</label>
-                    <div class="prices-price__input">
-                        <span aria-hidden="true">$</span>
-                        <input type="text" id="edit-price" inputmode="numeric" autocomplete="off"
-                               value="${item.price > 0 ? Math.round(item.price).toLocaleString('es-CL') : ''}"
-                               placeholder="0">
-                    </div>
-                    <div class="prices-segment" role="radiogroup" aria-label="Tipo de precio">
-                        <button type="button" role="radio" data-price-type="fixed" aria-checked="${item.price_type !== 'from'}">Precio fijo</button>
-                        <button type="button" role="radio" data-price-type="from" aria-checked="${item.price_type === 'from'}">Desde</button>
-                    </div>
-                    <p class="wizard-hint">«Desde» se muestra como «desde $X»: úsalo cuando el valor depende del largo o la cantidad de pelo.</p>
+                    <span class="prices-price__label">Precio</span>
+                    <label class="prices-toggle">
+                        <input type="checkbox" id="edit-lengths" ${lengths ? 'checked' : ''}>
+                        <span>
+                            <strong>Activar diferentes largos</strong>
+                            <span>Corto, mediano, largo y extra largo, cada uno con su precio. La clienta elige su largo al reservar.</span>
+                        </span>
+                    </label>
+                    <div id="edit-price-body" class="prices-price">${priceBody(item, lengths)}</div>
                 </div>
 
                 <div class="wizard-field">
@@ -662,7 +752,7 @@ App.Pages.ServicePrices = (function () {
     function readEdit() {
         const item = service(state.editId);
         const change = {id: item.id};
-        const price = parsePrice($edit.find('#edit-price').val());
+        const lengths = $edit.find('#edit-lengths').prop('checked');
         const priceType = $edit.find('[data-price-type][aria-checked="true"]').data('price-type') || 'fixed';
         const typed = Number($edit.find('#edit-duration').val());
         const chosen = Number($edit.find('[data-duration][aria-checked="true"]').data('duration'));
@@ -670,12 +760,40 @@ App.Pages.ServicePrices = (function () {
         const categoryId = Number($edit.find('#edit-category').val()) || null;
         const archived = $edit.find('#edit-archived').prop('checked');
 
-        if (price !== Math.round(item.price)) {
-            change.price = price;
-        }
+        if (lengths) {
+            const variants = HairLength.LENGTHS.map((length) => ({
+                hair_length: length.key,
+                price: parsePrice($edit.find(`[data-length-price="${length.key}"]`).val()),
+                duration: Number($edit.find(`[data-length-duration="${length.key}"]`).val()) || null,
+            })).filter((variant) => variant.price > 0);
 
-        if (priceType !== (item.price_type || 'fixed')) {
-            change.price_type = priceType;
+            const same = (a, b) =>
+                a.length === b.length &&
+                a.every((variant, index) =>
+                    variant.hair_length === b[index].hair_length &&
+                    variant.price === Math.round(b[index].price) &&
+                    (variant.duration || null) === (b[index].duration || null));
+
+            if (!same(variants, item.variants)) {
+                // Price and type travel along so "Deshacer" restores them too.
+                change.variants = variants;
+                change.price = item.price;
+                change.price_type = item.price_type || 'fixed';
+            }
+        } else {
+            const price = parsePrice($edit.find('#edit-price').val());
+
+            if (item.variants.length) {
+                change.variants = [];
+            }
+
+            if (price !== Math.round(item.price) || item.variants.length) {
+                change.price = price;
+            }
+
+            if (priceType !== (item.price_type || 'fixed')) {
+                change.price_type = priceType;
+            }
         }
 
         if (minutes !== item.duration) {
@@ -700,7 +818,7 @@ App.Pages.ServicePrices = (function () {
             state.editId = next;
             renderEdit();
             $edit.scrollTop(0);
-            setTimeout(() => $edit.find('#edit-price').trigger('focus'), 50);
+            setTimeout(() => $edit.find('#edit-price, [data-length-price]').first().trigger('focus'), 50);
         } else {
             closeSheet($edit);
         }
@@ -725,9 +843,11 @@ App.Pages.ServicePrices = (function () {
             ? 'Servicio oculto'
             : change.is_archived === false
               ? 'Servicio visible otra vez'
-              : 'price' in change
-                ? capitalize(item.name.trim()) + ': ' + (change.price ? money(change.price) : 'sin precio')
-                : 'Cambios guardados';
+              : 'variants' in change && change.variants.length
+                ? capitalize(item.name.trim()) + ': precios por largo guardados'
+                : 'price' in change
+                  ? capitalize(item.name.trim()) + ': ' + (change.price ? money(change.price) : 'sin precio')
+                  : 'Cambios guardados';
 
         save([change], message).then((ok) => {
             if (!ok) {
@@ -754,9 +874,30 @@ App.Pages.ServicePrices = (function () {
             .filter(Boolean)
             .sort(byUse)
             .map((item) => {
-                const raw = state.bulk.mode === 'percent' ? item.price * (1 + value / 100) : item.price + value;
+                const apply = (price) =>
+                    rounding.apply(Math.max(0, state.bulk.mode === 'percent' ? price * (1 + value / 100) : price + value));
 
-                return {item, before: Math.round(item.price), after: rounding.apply(Math.max(0, raw))};
+                // Priced by length: every length changes; the row shows the shortest and the longest.
+                if (item.variants.length) {
+                    const variants = item.variants.map((variant) => ({...variant, price: apply(variant.price)}));
+                    const before = item.variants.map((variant) => Math.round(variant.price));
+                    const after = variants.map((variant) => variant.price);
+
+                    return {
+                        item,
+                        before: Math.min(...before),
+                        after: Math.min(...after),
+                        beforeMax: Math.max(...before),
+                        afterMax: Math.max(...after),
+                        variants,
+                        changed: after.some((price, index) => price !== before[index]),
+                    };
+                }
+
+                const before = Math.round(item.price);
+                const after = apply(item.price);
+
+                return {item, before, after, changed: after !== before};
             });
     }
 
@@ -767,7 +908,7 @@ App.Pages.ServicePrices = (function () {
 
     function renderBulk() {
         const rows = bulkPreview();
-        const changed = rows.filter((row) => row.after !== row.before);
+        const changed = rows.filter((row) => row.changed);
 
         $bulkBody.html(`
             <h2>¿Cuánto cambian?</h2>
@@ -809,8 +950,8 @@ App.Pages.ServicePrices = (function () {
                     <li class="prices-preview">
                         <span class="prices-row__title">${esc(capitalize(row.item.name.trim()))}</span>
                         <span class="prices-preview__values">
-                            <s>${money(row.before)}</s>
-                            <strong class="${row.after > row.before ? 'is-up' : row.after < row.before ? 'is-down' : ''}">${money(row.after)}</strong>
+                            <s>${money(row.before)}${row.variants ? '–' + money(row.beforeMax) : ''}</s>
+                            <strong class="${row.after > row.before ? 'is-up' : row.after < row.before ? 'is-down' : ''}">${money(row.after)}${row.variants ? '–' + money(row.afterMax) : ''}</strong>
                         </span>
                     </li>`,
                     )
@@ -830,13 +971,22 @@ App.Pages.ServicePrices = (function () {
         const rows = bulkPreview();
 
         $('#bulk-preview').html(renderBulkPreview(rows));
-        renderBulkFooter(rows.filter((row) => row.after !== row.before).length);
+        renderBulkFooter(rows.filter((row) => row.changed).length);
     }
 
     function applyBulk() {
         const changes = bulkPreview()
-            .filter((row) => row.after !== row.before)
-            .map((row) => ({id: row.item.id, price: row.after}));
+            .filter((row) => row.changed)
+            .map((row) =>
+                row.variants
+                    ? {
+                          id: row.item.id,
+                          variants: row.variants.map(({hair_length, price, duration}) => ({hair_length, price, duration})),
+                          price: row.item.price,
+                          price_type: row.item.price_type,
+                      }
+                    : {id: row.item.id, price: row.after},
+            );
 
         const $button = $('#bulk-apply').prop('disabled', true);
 
@@ -1033,9 +1183,20 @@ App.Pages.ServicePrices = (function () {
         $selectbar.on('click', '#prices-select-next', openBulk);
 
         // Edit sheet.
-        $edit.on('input', '#edit-price', (event) => {
+        $edit.on('input', '#edit-price, [data-length-price]', (event) => {
             const value = parsePrice(event.target.value);
             event.target.value = value ? value.toLocaleString('es-CL') : '';
+        });
+
+        // Lengths on: the suggested prices start from the price typed; off: the single price starts from the short one.
+        $edit.on('change', '#edit-lengths', (event) => {
+            const item = service(state.editId);
+            const lengths = event.target.checked;
+            const base = lengths
+                ? parsePrice($edit.find('#edit-price').val())
+                : parsePrice($edit.find('[data-length-price="short"]').val()) || null;
+
+            $edit.find('#edit-price-body').html(priceBody(item, lengths, base));
         });
 
         $edit.on('click', '[data-price-type]', (event) => {

@@ -50,7 +50,7 @@ $service_name = mb_strtoupper(mb_substr($service_name, 0, 1)) . mb_substr($servi
         <h2>¡Te esperamos!</h2>
 
         <div class="bk-summary">
-            <p class="bk-summary__service"><?= e($service_name) ?></p>
+            <p class="bk-summary__service"><?= e($service_name) ?><?= $summary['hair_length'] ? ' · ' . e($summary['hair_length']) : '' ?></p>
             <p class="bk-summary__when"><?= e($when) ?>, <?= e($time) ?></p>
             <ul class="bk-summary__facts">
                 <li><?= e($duration) ?></li>

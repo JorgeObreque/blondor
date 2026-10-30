@@ -8,13 +8,20 @@
  * Service catalog model.
  *
  * The service list with its usage (to order and clean the catalog) and the quick edits of the mobile price page:
- * price, price type, duration, category and hidden services. Every price change is logged and also applies to the
- * upcoming appointments of that service; past appointments keep the price they had.
+ * price, price type, prices by hair length, duration, category and hidden services. Every price change is logged and
+ * also applies to the upcoming appointments of that service; past appointments keep the price they had.
  *
  * @package Models
  */
 class Service_catalog_model extends EA_Model
 {
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->load->model('service_variants_model');
+    }
+
     const PRICE_TYPES = ['fixed', 'from'];
 
     /**
@@ -60,12 +67,13 @@ class Service_catalog_model extends EA_Model
         }
 
         $services = $this->db->order_by('name ASC')->get('services')->result_array();
+        $variants = $this->service_variants_model->by_service();
 
-        return array_map(function ($service) use ($usage, $providers) {
+        return array_map(function ($service) use ($usage, $providers, $variants) {
             $id = (int) $service['id'];
             $use = $usage[$id] ?? [];
 
-            return $this->card($service) + [
+            return $this->card($service, $variants[$id] ?? []) + [
                 'uses' => (int) ($use['done'] ?? 0),
                 'recent_uses' => (int) ($use['recent'] ?? 0),
                 'upcoming' => (int) ($use['upcoming'] ?? 0),
@@ -96,6 +104,20 @@ class Service_catalog_model extends EA_Model
             }
 
             $update = [];
+            $previous_variants = $this->service_variants_model->of_service((int) $service['id']);
+            $variant_changes = [];
+
+            if (array_key_exists('variants', $change)) {
+                $variants = is_array($change['variants']) ? $change['variants'] : [];
+                $variant_changes = $this->service_variants_model->replace((int) $service['id'], $variants);
+
+                // El precio del servicio queda en el del largo más corto, para lo que aún no conoce los largos.
+                if ($variants) {
+                    $first = $this->service_variants_model->of_service((int) $service['id'])[0];
+                    $change['price'] = $first['price'];
+                    $change['price_type'] = 'from';
+                }
+            }
 
             if (array_key_exists('price', $change)) {
                 $price = $this->valid_price($change['price']);
@@ -156,12 +178,34 @@ class Service_catalog_model extends EA_Model
                     ->where('id_services', $service['id'])
                     ->where('is_unavailability', false)
                     ->where('start_datetime >=', $now)
+                    ->where('hair_length IS NULL', null, false)
                     ->update('appointments', ['price' => $update['price'] > 0 ? $update['price'] : null]);
             }
 
+            foreach ($variant_changes as $variant_change) {
+                $this->db->insert('service_price_log', [
+                    'id_services' => $service['id'],
+                    'hair_length' => $variant_change['hair_length'],
+                    'old_price' => $variant_change['old_price'],
+                    'new_price' => $variant_change['new_price'],
+                    'id_users_author' => $author_id,
+                    'create_datetime' => $now,
+                ]);
+
+                $this->db
+                    ->where('id_services', $service['id'])
+                    ->where('hair_length', $variant_change['hair_length'])
+                    ->where('is_unavailability', false)
+                    ->where('start_datetime >=', $now)
+                    ->update('appointments', ['price' => $variant_change['new_price']]);
+            }
+
             $saved[] = [
-                'service' => $this->card($this->db->get_where('services', ['id' => $service['id']])->row_array()),
-                'previous' => $this->card($service),
+                'service' => $this->card(
+                    $this->db->get_where('services', ['id' => $service['id']])->row_array(),
+                    $this->service_variants_model->of_service((int) $service['id']),
+                ),
+                'previous' => $this->card($service, $previous_variants),
             ];
         }
 
@@ -185,7 +229,7 @@ class Service_catalog_model extends EA_Model
         return $price;
     }
 
-    private function card(array $service): array
+    private function card(array $service, array $variants = []): array
     {
         return [
             'id' => (int) $service['id'],
@@ -195,6 +239,14 @@ class Service_catalog_model extends EA_Model
             'duration' => (int) $service['duration'],
             'category_id' => $service['id_service_categories'] ? (int) $service['id_service_categories'] : null,
             'is_archived' => (bool) ($service['is_archived'] ?? false),
+            'variants' => array_map(
+                fn($variant) => [
+                    'hair_length' => $variant['hair_length'],
+                    'price' => $variant['price'],
+                    'duration' => $variant['duration'],
+                ],
+                $variants,
+            ),
         ];
     }
 }

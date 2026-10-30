@@ -567,6 +567,144 @@ p {
   color: var(--ink);
 }
 
+/* Servicios con precio según el largo: la fila se ve como las demás y se despliega con una tarjeta por largo. */
+
+.svc--toggle {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.svc--toggle[aria-expanded="true"] {
+  background: var(--tint);
+}
+
+.svc__chevron {
+  display: inline-block;
+  transition: transform 0.25s ease;
+}
+
+.svc--toggle[aria-expanded="true"] .svc__chevron {
+  transform: rotate(90deg);
+}
+
+.svc__picker {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.svc--toggle[aria-expanded="true"] + .svc__picker {
+  grid-template-rows: 1fr;
+}
+
+.svc__picker-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.svc--toggle[aria-expanded="true"] + .svc__picker .svc__picker-inner {
+  background: var(--tint);
+}
+
+.svc__picker-lead {
+  margin: 0;
+  padding: 2px 16px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.svc__lengths {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.svc__length {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+  text-decoration: none;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--muted);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.svc__length:hover,
+.svc__length:focus-visible {
+  border-color: var(--price);
+  transform: translateY(-2px);
+}
+
+.svc__length strong {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.svc__length b {
+  margin-top: 6px;
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--price);
+}
+
+@media (min-width: 640px) {
+  .svc__lengths {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svc__picker,
+  .svc__chevron,
+  .svc__length {
+    transition: none;
+  }
+}
+
+.hair-figure {
+  width: 56px;
+  height: 84px;
+  color: #a8743a;
+  --hair-body: #e9dccd;
+  --hair-mark: var(--price);
+}
+
+.hair-figure__body {
+  fill: var(--hair-body);
+}
+
+.hair-figure__hair {
+  fill: currentColor;
+}
+
+.hair-figure__mark {
+  fill: none;
+  stroke: var(--hair-mark);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+@media (prefers-color-scheme: dark) {
+  .hair-figure {
+    --hair-body: #3a5876;
+    color: #d39a5b;
+  }
+}
+
 .svc-loading {
   height: 240px;
   border-radius: var(--radius);

@@ -2,7 +2,9 @@
  * Blondor - blondor.cl
  *
  * Los servicios y precios vienen de la agenda (public_catalog), así el sitio siempre muestra lo mismo que la
- * reserva. Cada servicio abre la reserva con ese servicio ya elegido (?service=ID).
+ * reserva. Cada servicio abre la reserva con ese servicio ya elegido (?service=ID). Los que se cobran según el largo
+ * del pelo se despliegan en la misma fila con una tarjeta por largo (silueta y precio), y cada tarjeta abre la reserva
+ * con ese largo elegido (&length=long).
  * ---------------------------------------------------------------------------- */
 
 (function () {
@@ -23,6 +25,17 @@
     ];
 
     const PROMO = /^promo/;
+
+    /**
+     * Same lengths as the agenda (App.Utils.HairLength in agenda/assets/js/utils/hair_length.js). "end" is where the
+     * hair ends in the figure.
+     */
+    const LENGTHS = [
+        {key: 'short', label: 'Corto', hint: 'Hasta el hombro', end: 40},
+        {key: 'medium', label: 'Mediano', hint: 'Hasta el brasier', end: 58},
+        {key: 'long', label: 'Largo', hint: 'Hasta la cintura', end: 76},
+        {key: 'xlong', label: 'Extra largo', hint: 'Bajo la cintura', end: 97},
+    ];
 
     function normalize(text) {
         return String(text || '')
@@ -61,8 +74,28 @@
         return hours + ' h' + (rest ? ' ' + rest + ' min' : '');
     }
 
-    function bookUrl(serviceId) {
-        return serviceId ? BOOK + '?service=' + serviceId : BOOK;
+    function bookUrl(serviceId, length) {
+        return serviceId ? BOOK + '?service=' + serviceId + (length ? '&length=' + length : '') : BOOK;
+    }
+
+    /**
+     * Back view of a figure with the hair down to that length, and a line where it ends (same figure as the agenda).
+     */
+    function hairFigure(length) {
+        const end = length.end;
+        const spread = Math.min(5, (end - 40) / 12 + 1);
+
+        return `
+            <svg class="hair-figure" viewBox="0 0 80 120" aria-hidden="true">
+                <path class="hair-figure__body"
+                      d="M35 26h10v6c9 1 15 4 16 10l-3 20c-1 6-3 10-4 14 3 6 5 14 5 24l-1 20H22l-1-20c0-10 2-18 5-24-1-4-3-8-4-14l-3-20c1-6 7-9 16-10z"/>
+                <path class="hair-figure__body" d="M62 40c4 2 5 7 5 13l1 34c0 4-5 4-5 0l-2-27z"/>
+                <path class="hair-figure__body" d="M18 40c-4 2-5 7-5 13l-1 34c0 4 5 4 5 0l2-27z"/>
+                <ellipse class="hair-figure__body" cx="40" cy="17" rx="10" ry="11"/>
+                <path class="hair-figure__hair"
+                      d="M29 21C28 2 52 2 51 21L${52 + spread} ${end - 5}Q40 ${end + 3} ${28 - spread} ${end - 5}Z"/>
+                <path class="hair-figure__mark" d="M6 ${end}H74"/>
+            </svg>`;
     }
 
     function linkBookingButtons() {
@@ -98,7 +131,79 @@
         button.href = bookUrl(promo.id);
     }
 
+    /**
+     * A service priced by hair length: the row looks like the others (price as set in the agenda, "desde" included)
+     * and opens in place to choose the length, one card per length with its figure and price. Each card books with
+     * that length.
+     */
+    function variantRow(service) {
+        const durations = [...new Set(service.variants.map((variant) => variant.duration))];
+        const meta = durations.length > 1
+            ? duration(Math.min(...durations)) + ' a ' + duration(Math.max(...durations))
+            : duration(durations[0]);
+        const pickerId = 'svc-lengths-' + service.id;
+
+        return `
+            <li class="svc-item">
+                <button type="button" class="svc svc--toggle" aria-expanded="false" aria-controls="${pickerId}">
+                    <span class="svc__name">${esc(displayName(service.name))}</span>
+                    <span class="svc__meta">${esc(meta)}</span>
+                    <span class="svc__price">
+                        ${service.price > 0 ? `<strong>${service.price_type === 'from' ? '<small>desde</small>' : ''}${esc(money(service.price))}</strong>` : ''}
+                        <span class="svc__go">Elegir largo <span class="svc__chevron" aria-hidden="true">›</span></span>
+                    </span>
+                </button>
+                <div class="svc__picker" id="${pickerId}">
+                    <div class="svc__picker-inner">
+                        <p class="svc__picker-lead">¿Qué largo tienes? Mídelo con el pelo suelto, por la espalda.</p>
+                        <div class="svc__lengths">
+                            ${service.variants
+                                .map((variant) => {
+                                    const length = LENGTHS.find((item) => item.key === variant.hair_length);
+
+                                    return `
+                                        <a class="svc__length" href="${esc(bookUrl(service.id, variant.hair_length))}" tabindex="-1"
+                                           aria-label="Reservar ${esc(displayName(service.name))}, pelo ${esc(length.label.toLowerCase())}, ${esc(money(variant.price))}">
+                                            ${hairFigure(length)}
+                                            <strong>${esc(length.label)}</strong>
+                                            <span>${esc(length.hint)}</span>
+                                            <b>${esc(money(variant.price))}</b>
+                                        </a>`;
+                                })
+                                .join('')}
+                        </div>
+                    </div>
+                </div>
+            </li>`;
+    }
+
+    /**
+     * Open one service priced by length (and close the one that was open).
+     */
+    function toggleLengths(button) {
+        const open = button.getAttribute('aria-expanded') !== 'true';
+
+        document.querySelectorAll('.svc--toggle[aria-expanded="true"]').forEach((other) => {
+            if (other !== button) {
+                setExpanded(other, false);
+            }
+        });
+
+        setExpanded(button, open);
+    }
+
+    function setExpanded(button, open) {
+        button.setAttribute('aria-expanded', String(open));
+        document.getElementById(button.getAttribute('aria-controls')).querySelectorAll('a').forEach((link) => {
+            link.tabIndex = open ? 0 : -1;
+        });
+    }
+
     function serviceRow(service) {
+        if ((service.variants || []).length) {
+            return variantRow(service);
+        }
+
         const price = service.price > 0
             ? `<strong>${service.price_type === 'from' ? '<small>desde</small>' : ''}${esc(money(service.price))}</strong>`
             : '<span class="svc__ask">Precio a confirmar</span>';
@@ -141,6 +246,14 @@
                     </div>`,
             )
             .join('');
+
+        panels.addEventListener('click', (event) => {
+            const toggle = event.target.closest('.svc--toggle');
+
+            if (toggle) {
+                toggleLengths(toggle);
+            }
+        });
 
         tabs.addEventListener('click', (event) => {
             const tab = event.target.closest('.tab');

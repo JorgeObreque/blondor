@@ -31,6 +31,7 @@ class Booking_confirmation extends EA_Controller
         $this->load->model('providers_model');
         $this->load->model('services_model');
         $this->load->model('customers_model');
+        $this->load->model('service_variants_model');
 
         $this->load->library('google_sync');
     }
@@ -61,16 +62,20 @@ class Booking_confirmation extends EA_Controller
         $provider = $this->providers_model->find($appointment['id_users_provider']);
         $customer = $this->customers_model->find($appointment['id_users_customer']);
         $price = (float) ($appointment['price'] ?? 0) ?: (float) ($service['price'] ?? 0);
+        $hair_length = $appointment['hair_length'] ?? null;
+        $duration = (int) round((strtotime($appointment['end_datetime']) - strtotime($appointment['start_datetime'])) / 60);
 
         html_vars([
             'page_title' => lang('success'),
             'summary' => [
                 'service' => $service['name'],
+                'hair_length' => Service_variants_model::label($hair_length),
                 'provider' => trim($provider['first_name'] . ' ' . $provider['last_name']),
                 'start' => $appointment['start_datetime'],
-                'duration' => (int) $service['duration'],
+                'duration' => $duration > 0 ? $duration : (int) $service['duration'],
                 'price' => $price,
-                'price_type' => $service['price_type'] ?? 'fixed',
+                // Con el largo elegido el precio es exacto.
+                'price_type' => $hair_length ? 'fixed' : $service['price_type'] ?? 'fixed',
                 'email' => $customer['email'] ?? '',
                 'manage_url' => site_url('booking/reschedule/' . $appointment['hash']),
             ],

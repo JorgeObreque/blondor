@@ -38,6 +38,7 @@ class Email_messages
         $this->CI->load->model('secretaries_model');
         $this->CI->load->model('secretaries_model');
         $this->CI->load->model('settings_model');
+        $this->CI->load->model('service_variants_model');
 
         $this->CI->load->library('email');
         $this->CI->load->library('ics_file');

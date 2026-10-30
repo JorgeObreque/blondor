@@ -202,8 +202,9 @@ class Appointments_model extends EA_Model
     }
 
     /**
-     * Blondor: keep the service price of the moment the appointment is booked (or its service changes), so later
-     * price changes do not rewrite the history. Without a price ($0) it stays NULL and the service price is used.
+     * Blondor: keep the service price of the moment the appointment is booked (or its service or hair length
+     * changes), so later price changes do not rewrite the history. Services priced by hair length take the price of
+     * that length. Without a price ($0) it stays NULL and the service price is used.
      *
      * @param array $appointment Associative array with the appointment data.
      */
@@ -217,20 +218,51 @@ class Appointments_model extends EA_Model
             return;
         }
 
+        $has_length = $this->db->field_exists('hair_length', 'appointments');
+        $length_given = $has_length && array_key_exists('hair_length', $appointment);
+
+        if ($length_given) {
+            $appointment['hair_length'] = $appointment['hair_length'] ?: null;
+        }
+
         if (!empty($appointment['id'])) {
             $current = $this->db
-                ->select('id_services')
+                ->select($has_length ? 'id_services, hair_length' : 'id_services')
                 ->get_where('appointments', ['id' => $appointment['id']])
                 ->row_array();
 
-            if ($current && (int) $current['id_services'] === (int) $appointment['id_services']) {
+            $same_service = $current && (int) $current['id_services'] === (int) $appointment['id_services'];
+
+            // Same service and the length did not change (or was not sent): it keeps its price.
+            if ($same_service && (!$length_given || $current['hair_length'] === $appointment['hair_length'])) {
                 return;
             }
         }
 
-        $service = $this->db->select('price')->get_where('services', ['id' => $appointment['id_services']])->row_array();
+        if ($has_length && !$length_given) {
+            $appointment['hair_length'] = null; // Another service: the old length does not apply.
+        }
 
-        $appointment['price'] = $service && (float) $service['price'] > 0 ? $service['price'] : null;
+        $service = $this->db->select('price')->get_where('services', ['id' => $appointment['id_services']])->row_array();
+        $price = $service && (float) $service['price'] > 0 ? $service['price'] : null;
+
+        if ($has_length && $appointment['hair_length']) {
+            $variant = $this->db
+                ->select('price')
+                ->get_where('service_variants', [
+                    'id_services' => $appointment['id_services'],
+                    'hair_length' => $appointment['hair_length'],
+                ])
+                ->row_array();
+
+            if ($variant) {
+                $price = $variant['price'];
+            } else {
+                $appointment['hair_length'] = null;
+            }
+        }
+
+        $appointment['price'] = $price;
     }
 
     /**

@@ -14,6 +14,7 @@ for src in \
   assets/js/pages/register_service.js \
   assets/js/http/register_service_http_client.js \
   assets/js/pages/providers.js \
+  assets/js/utils/hair_length.js \
   assets/js/pages/booking.js \
   assets/js/http/booking_http_client.js \
   assets/css/pages/booking.css \

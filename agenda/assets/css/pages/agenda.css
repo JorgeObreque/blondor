@@ -684,6 +684,10 @@
   font-weight: 700;
 }
 
+.wizard-tabs--wrap {
+  flex-wrap: wrap;
+}
+
 .wizard-tab[aria-selected="true"] {
   background: var(--ag-ink);
   border-color: var(--ag-ink);

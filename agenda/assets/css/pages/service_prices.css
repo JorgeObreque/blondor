@@ -379,6 +379,131 @@
   font-weight: 800;
 }
 
+/* Precio según el largo: una fila por largo con su infografía, precio y duración opcional. */
+
+.prices-lengths {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ag-line);
+  border-radius: var(--ag-radius);
+  background: var(--ag-surface);
+}
+
+.prices-length {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 96px;
+  grid-template-areas:
+    "figure text text"
+    "figure price time";
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+}
+
+@media (min-width: 560px) {
+  .prices-length {
+    grid-template-columns: 40px minmax(0, 1fr) 140px 96px;
+    grid-template-areas: "figure text price time";
+  }
+}
+
+.prices-length + .prices-length {
+  border-top: 1px solid var(--ag-line);
+}
+
+.prices-length__figure {
+  grid-area: figure;
+  width: 40px;
+  height: 60px;
+}
+
+.prices-length__text {
+  grid-area: text;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: var(--ag-muted);
+}
+
+.prices-length__text strong {
+  font-size: 15px;
+  color: var(--ag-ink);
+}
+
+.prices-length__price {
+  grid-area: price;
+}
+
+.prices-length__time {
+  grid-area: time;
+}
+
+.prices-length__price,
+.prices-length__time {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  border: 1.5px solid var(--ag-line);
+  border-radius: 12px;
+  font-weight: 700;
+  color: var(--ag-muted);
+}
+
+.prices-length__price:focus-within,
+.prices-length__time:focus-within {
+  border-color: var(--ag-brand);
+}
+
+.prices-length__price input,
+.prices-length__time input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ag-ink);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  -moz-appearance: textfield;
+}
+
+.prices-length__time input::-webkit-inner-spin-button,
+.prices-length__time input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+
+.prices-length__time span {
+  font-size: 12px;
+}
+
+.prices-length .hair-figure {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: none;
+  color: #a8743a;
+  --hair-body: #e9dccd;
+  --hair-mark: var(--ag-brand);
+}
+
+.hair-figure__body {
+  fill: var(--hair-body);
+}
+
+.hair-figure__hair {
+  fill: currentColor;
+}
+
+.hair-figure__mark {
+  stroke: var(--hair-mark);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+
 .prices-segment {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);

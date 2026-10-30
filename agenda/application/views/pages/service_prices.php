@@ -85,6 +85,7 @@
 
 <?php section('scripts'); ?>
 
+<script src="<?= asset_url('assets/js/utils/hair_length.js') ?>"></script>
 <script src="<?= asset_url('assets/js/http/service_prices_http_client.js') ?>"></script>
 <script src="<?= asset_url('assets/js/pages/service_prices.js') ?>"></script>
 

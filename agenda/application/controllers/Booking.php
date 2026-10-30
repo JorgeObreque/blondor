@@ -54,6 +54,7 @@ class Booking extends EA_Controller
         'id_users_provider',
         'id_users_customer',
         'id_services',
+        'hair_length',
     ];
 
     /**
@@ -72,6 +73,7 @@ class Booking extends EA_Controller
         $this->load->model('customers_model');
         $this->load->model('settings_model');
         $this->load->model('consents_model');
+        $this->load->model('service_variants_model');
 
         $this->load->library('timezones');
         $this->load->library('synchronization');
@@ -136,6 +138,15 @@ class Booking extends EA_Controller
 
         $available_services = $this->services_model->get_available_services(true);
         $available_providers = $this->providers_model->get_available_providers(true);
+
+        // Blondor: precio y duración por largo del pelo, para que la clienta vea el valor exacto.
+        $variants = $this->service_variants_model->by_service(array_column($available_services, 'id'));
+
+        foreach ($available_services as &$available_service) {
+            $available_service['variants'] = $variants[(int) $available_service['id']] ?? [];
+        }
+
+        unset($available_service);
 
         foreach ($available_providers as &$available_provider) {
             // Only expose the required provider data.
@@ -368,7 +379,14 @@ class Booking extends EA_Controller
 
             $provider = $this->providers_model->find($appointment['id_users_provider']);
 
-            $service = $this->services_model->find($appointment['id_services']);
+            $service = $this->booked_service($appointment['id_services'], $appointment['hair_length'] ?? null);
+
+            // Blondor: el término lo da la duración del servicio (o de su largo), no el navegador.
+            $appointment['hair_length'] = $service['hair_length'];
+            $appointment['end_datetime'] = date(
+                'Y-m-d H:i:s',
+                strtotime($appointment['start_datetime'] . ' +' . (int) $service['duration'] . ' minutes'),
+            );
 
             $require_captcha = (bool) setting('require_captcha');
 
@@ -520,13 +538,20 @@ class Booking extends EA_Controller
 
         $hour = $appointment_start->format('H:i');
 
+        $hair_length = $appointment['hair_length'] ?? null;
+
         if ($appointment['id_users_provider'] === ANY_PROVIDER) {
-            $appointment['id_users_provider'] = $this->search_any_provider($appointment['id_services'], $date, $hour);
+            $appointment['id_users_provider'] = $this->search_any_provider(
+                $appointment['id_services'],
+                $date,
+                $hour,
+                $hair_length,
+            );
 
             return $appointment['id_users_provider'];
         }
 
-        $service = $this->services_model->find($appointment['id_services']);
+        $service = $this->booked_service($appointment['id_services'], $hair_length);
 
         $exclude_appointment_id = $appointment['id'] ?? null;
 
@@ -561,16 +586,21 @@ class Booking extends EA_Controller
      * @param int $service_id Service ID
      * @param string $date Selected date (Y-m-d).
      * @param string|null $hour Selected hour (H:i).
+     * @param string|null $hair_length Hair length, for services priced by length.
      *
      * @return int|null Returns the ID of the provider that can provide the service at the selected date.
      *
      * @throws Exception
      */
-    protected function search_any_provider(int $service_id, string $date, string $hour = null): ?int
-    {
+    protected function search_any_provider(
+        int $service_id,
+        string $date,
+        string $hour = null,
+        string $hair_length = null,
+    ): ?int {
         $available_providers = $this->providers_model->get_available_providers(true);
 
-        $service = $this->services_model->find($service_id);
+        $service = $this->booked_service($service_id, $hair_length);
 
         $provider_id = null;
 
@@ -632,7 +662,7 @@ class Booking extends EA_Controller
             // If the user has selected the "any-provider" option then we will need to search for an available provider
             // that will provide the requested service.
 
-            $service = $this->services_model->find($service_id);
+            $service = $this->booked_service($service_id, request('hair_length'));
 
             if ($provider_id === ANY_PROVIDER) {
                 $providers = $this->providers_model->get();
@@ -708,8 +738,8 @@ class Booking extends EA_Controller
 
             $exclude_appointment_id = $manage_mode ? $appointment_id : null;
 
-            // Get the service record.
-            $service = $this->services_model->find($service_id);
+            // Get the service record (with the duration of the chosen hair length).
+            $service = $this->booked_service($service_id, request('hair_length'));
 
             for ($i = 1; $i <= $number_of_days_in_month; $i++) {
                 $current_date = new DateTime($selected_date->format('Y-m') . '-' . $i);
@@ -754,6 +784,19 @@ class Booking extends EA_Controller
         } catch (Throwable $e) {
             json_exception($e);
         }
+    }
+
+    /**
+     * Blondor: the service as it is booked, with the duration of the chosen hair length when it is priced by length.
+     *
+     * @param int|string $service_id
+     * @param string|null $hair_length
+     *
+     * @return array The service, with "hair_length" (NULL for services without lengths).
+     */
+    protected function booked_service($service_id, ?string $hair_length): array
+    {
+        return $this->service_variants_model->apply($this->services_model->find((int) $service_id), $hair_length ?: null);
     }
 
     /**

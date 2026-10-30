@@ -2,7 +2,8 @@
  * Blondor - Reserva pública, móvil primero
  *
  * Reemplaza el asistente de 4 pasos de Easy!Appointments por el flujo de Fresha y Booksy:
- *   1. Servicio: lista por familia con duración y precio; un toque elige y avanza.
+ *   1. Servicio: lista por familia con duración y precio; un toque elige y avanza. Los servicios que se cobran
+ *      según el largo muestran el precio de cada largo y preguntan «¿Qué largo tienes?» con una infografía.
  *   2. Día y hora: tira de días (los sin horas aparecen apagados) y horas agrupadas en mañana, tarde y noche.
  *   3. Tus datos y confirmar: resumen de la cita, formulario corto y un solo botón.
  * La profesional solo se pregunta cuando más de una hace el servicio. El botón «atrás» del teléfono vuelve un paso.
@@ -32,7 +33,12 @@ App.Pages.Booking = (function () {
     const $barText = $('#bk-bar-text');
     const $next = $('#bk-next');
     const $toast = $('#bk-toast');
+    const $lengths = $('#bk-lengths');
+    const $lengthChips = $('#bk-length-chips');
+    const $lengthSheet = $('#bk-length-sheet');
+    const $lengthOptions = $('#bk-length-options');
     const moment = window.moment;
+    const HairLength = App.Utils.HairLength;
 
     const STEPS = ['service', 'time', 'details'];
     const ANY_PROVIDER = 'any-provider';
@@ -79,6 +85,11 @@ App.Pages.Booking = (function () {
             id: Number(service.id),
             duration: Number(service.duration) || 30,
             price: Number(service.price) || 0,
+            variants: (service.variants || []).map((variant) => ({
+                ...variant,
+                price: Number(variant.price) || 0,
+                duration: Number(variant.duration) || null,
+            })),
         }))
         .filter((service) => providersFor(service.id).length > 0);
 
@@ -87,11 +98,12 @@ App.Pages.Booking = (function () {
         depth: 0,
         keyword: '',
         serviceId: null,
+        hairLength: null,
         providerId: null,
         date: null,
         time: null,
-        unavailable: {}, // "service|provider" → {"YYYY-MM": Set of Y-m-d}
-        hours: {}, // "service|provider|date" → ["HH:mm"]
+        unavailable: {}, // "service|length|provider" → {"YYYY-MM": Set of Y-m-d}
+        hours: {}, // "service|length|provider|date" → ["HH:mm"]
         loadingMonths: false,
         saving: false,
         deleteArmed: false,
@@ -132,7 +144,7 @@ App.Pages.Booking = (function () {
             return '';
         }
 
-        return (service.price_type === 'from' ? 'desde ' : '') + money(service.price);
+        return (service.price_type === 'from' && !service.hair_length ? 'desde ' : '') + money(service.price);
     }
 
     function durationText(total) {
@@ -173,6 +185,35 @@ App.Pages.Booking = (function () {
         return services.find((item) => item.id === Number(id));
     }
 
+    /**
+     * The chosen service as it is booked: with the price and duration of the chosen hair length.
+     */
+    function booked() {
+        const item = service(state.serviceId);
+        const variant = item && item.variants.find((entry) => entry.hair_length === state.hairLength);
+
+        if (!variant) {
+            return item;
+        }
+
+        return {
+            ...item,
+            hair_length: variant.hair_length,
+            price: variant.price,
+            duration: variant.duration || item.duration,
+        };
+    }
+
+    /**
+     * "Balayage · Largo"
+     */
+    function bookedName() {
+        const item = booked();
+        const length = HairLength.label(item.hair_length);
+
+        return displayName(item) + (length ? ' · ' + length : '');
+    }
+
     function providersFor(serviceId) {
         return providers.filter((provider) => provider.services.includes(Number(serviceId)));
     }
@@ -184,7 +225,7 @@ App.Pages.Booking = (function () {
     }
 
     function availabilityKey() {
-        return state.serviceId + '|' + state.providerId;
+        return state.serviceId + '|' + (state.hairLength || '') + '|' + state.providerId;
     }
 
     /**
@@ -236,6 +277,15 @@ App.Pages.Booking = (function () {
         } catch (error) {
             // Private mode or blocked storage: the booking works the same without it.
         }
+    }
+
+    /**
+     * Services priced by hair length need one before choosing a time.
+     */
+    function lengthReady() {
+        const item = service(state.serviceId);
+
+        return !item || !item.variants.length || item.variants.some((variant) => variant.hair_length === state.hairLength);
     }
 
     // Navigation ------------------------------------------------------------------------------------------------
@@ -303,18 +353,17 @@ App.Pages.Booking = (function () {
             $barText.html(
                 ready
                     ? `<strong>${esc(dateShort(state.date))} · ${esc(timeText(state.time))}</strong>
-                       <span>${esc(displayName(service(state.serviceId)))}</span>`
+                       <span>${esc(bookedName())}</span>`
                     : '<span>Elige una hora para continuar</span>',
             );
             $next.text('Continuar').prop('disabled', !ready);
             return;
         }
 
-        const item = service(state.serviceId);
-        const price = priceText(item);
+        const price = priceText(booked());
 
         $barText.html(
-            price ? `<span>Total</span><strong>${esc(price)}</strong>` : `<strong>${esc(displayName(item))}</strong>`,
+            price ? `<span>Total</span><strong>${esc(price)}</strong>` : `<strong>${esc(bookedName())}</strong>`,
         );
         $next.text(state.saving ? 'Guardando…' : manageMode ? 'Guardar cambios' : 'Confirmar reserva');
         $next.prop('disabled', state.saving);
@@ -326,6 +375,10 @@ App.Pages.Booking = (function () {
         const price = priceText(item);
         const description = String(item.description || '').trim();
 
+        if (item.variants.length) {
+            return variantRow(item, description);
+        }
+
         return `
             <li>
                 <button type="button" class="bk-svc ${item.id === state.serviceId ? 'is-selected' : ''}" data-service="${item.id}">
@@ -335,6 +388,39 @@ App.Pages.Booking = (function () {
                         ${description ? `<span class="bk-svc__desc">${esc(description)}</span>` : ''}
                     </span>
                     <span class="bk-svc__price">${price ? esc(price) : '<small>Precio a confirmar</small>'}</span>
+                    <svg class="bk-svc__go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </li>`;
+    }
+
+    /**
+     * A service priced by hair length: the price of each length, no "desde".
+     */
+    function variantRow(item, description) {
+        const durations = [...new Set(item.variants.map((variant) => variant.duration || item.duration))];
+        const meta = durations.length > 1
+            ? durationText(Math.min(...durations)) + ' a ' + durationText(Math.max(...durations))
+            : durationText(durations[0]);
+
+        return `
+            <li>
+                <button type="button" class="bk-svc bk-svc--variants ${item.id === state.serviceId ? 'is-selected' : ''}" data-service="${item.id}">
+                    <span class="bk-svc__text">
+                        <span class="bk-svc__name">${esc(displayName(item))}</span>
+                        <span class="bk-svc__meta">${esc(meta)} · precio según tu largo</span>
+                        ${description ? `<span class="bk-svc__desc">${esc(description)}</span>` : ''}
+                        <span class="bk-svc__lengths">
+                            ${item.variants
+                                .map(
+                                    (variant) => `
+                                        <span class="bk-svc__length">
+                                            <span>${esc(HairLength.label(variant.hair_length))}</span>
+                                            <strong>${esc(money(variant.price))}</strong>
+                                        </span>`,
+                                )
+                                .join('')}
+                        </span>
+                    </span>
                     <svg class="bk-svc__go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
                 </button>
             </li>`;
@@ -395,27 +481,115 @@ App.Pages.Booking = (function () {
     function selectService(id) {
         if (state.serviceId !== id) {
             state.serviceId = id;
+            state.hairLength = null;
             state.providerId = defaultProviderId(id);
             state.date = null;
             state.time = null;
         }
 
+        if (service(id).variants.length) {
+            openLengthSheet(true);
+            return;
+        }
+
         goTo('time');
+    }
+
+    // Hair length -----------------------------------------------------------------------------------------------
+
+    /**
+     * "¿Qué largo tienes?": one card per length with its figure and price. Choosing one goes on to day and time.
+     */
+    function openLengthSheet(open) {
+        $('#bk-backdrop, #bk-length-sheet').prop('hidden', !open);
+        $('body').toggleClass('bk-locked', open);
+
+        if (!open) {
+            return;
+        }
+
+        const item = service(state.serviceId);
+
+        $('#bk-length-title').text('¿Qué largo tienes?');
+        $('#bk-length-service').text(displayName(item));
+        $lengthOptions.html(
+            item.variants
+                .map((variant) => {
+                    const length = HairLength.find(variant.hair_length);
+                    const minutes = variant.duration || item.duration;
+
+                    return `
+                        <button type="button" class="bk-length" role="radio" data-length="${variant.hair_length}"
+                                aria-checked="${variant.hair_length === state.hairLength}">
+                            <span class="bk-length__figure">${HairLength.figure(variant.hair_length)}</span>
+                            <span class="bk-length__name">${esc(length.label)}</span>
+                            <span class="bk-length__hint">${esc(length.hint)}</span>
+                            <strong class="bk-length__price">${esc(money(variant.price))}</strong>
+                            <span class="bk-length__time">${esc(durationText(minutes))}</span>
+                        </button>`;
+                })
+                .join(''),
+        );
+
+        // Focus inside the dialog without looking like a choice was made.
+        const $checked = $lengthSheet.find('[aria-checked="true"]');
+
+        ($checked.length ? $checked : $('#bk-length-title').attr('tabindex', '-1')).trigger('focus');
+    }
+
+    function selectLength(length) {
+        if (state.hairLength !== length) {
+            state.hairLength = length;
+            state.date = null;
+            state.time = null;
+        }
+
+        openLengthSheet(false);
+
+        if (state.step === 'time') {
+            renderTimeStep();
+            renderBar();
+        } else {
+            goTo('time');
+        }
+    }
+
+    function renderLengths() {
+        const item = service(state.serviceId);
+
+        $lengths.prop('hidden', !item.variants.length);
+
+        if (!item.variants.length) {
+            return;
+        }
+
+        $lengthChips.html(
+            item.variants
+                .map(
+                    (variant) => `
+                        <button type="button" class="bk-chip" role="radio" data-length="${variant.hair_length}"
+                                aria-checked="${variant.hair_length === state.hairLength}">
+                            ${esc(HairLength.label(variant.hair_length))} · ${esc(money(variant.price))}
+                        </button>`,
+                )
+                .join(''),
+        );
     }
 
     // Step 2: day and time --------------------------------------------------------------------------------------
 
     function renderTimeStep() {
-        const item = service(state.serviceId);
+        const item = booked();
         const price = priceText(item);
 
         $pickedService
             .find('.bk-picked__text')
             .html(
-                `<strong>${esc(displayName(item))}</strong>
+                `<strong>${esc(bookedName())}</strong>
                  <span>${esc([durationText(item.duration), price].filter(Boolean).join(' · '))}</span>`,
             );
 
+        renderLengths();
         renderProviders();
         renderDays();
         loadAvailability();
@@ -530,6 +704,7 @@ App.Pages.Booking = (function () {
                 try {
                     const dates = await App.Http.Booking.getUnavailableDates({
                         serviceId: state.serviceId,
+                        hairLength: state.hairLength,
                         providerId: state.providerId,
                         date: month + '-01',
                         appointmentId,
@@ -581,9 +756,10 @@ App.Pages.Booking = (function () {
             try {
                 state.hours[key] = await App.Http.Booking.getAvailableHours({
                     serviceId: state.serviceId,
+                    hairLength: state.hairLength,
                     providerId: state.providerId,
                     date,
-                    duration: service(state.serviceId).duration,
+                    duration: booked().duration,
                     appointmentId,
                 });
             } catch (error) {
@@ -638,7 +814,7 @@ App.Pages.Booking = (function () {
             <div class="bk-empty bk-empty--card">
                 <strong>No quedan horas online para este servicio.</strong>
                 <span>Escríbenos y te buscamos un espacio.</span>
-                <a class="bk-secondary" href="${whatsappUrl('Hola, quiero reservar ' + displayName(service(state.serviceId)))}"
+                <a class="bk-secondary" href="${whatsappUrl('Hola, quiero reservar ' + bookedName())}"
                    target="_blank" rel="noopener">Escribir por WhatsApp</a>
             </div>`);
     }
@@ -650,12 +826,12 @@ App.Pages.Booking = (function () {
     // Step 3: details and confirmation --------------------------------------------------------------------------
 
     function renderSummary() {
-        const item = service(state.serviceId);
+        const item = booked();
         const price = priceText(item);
         const choseProvider = providersFor(state.serviceId).length > 1 && state.providerId !== ANY_PROVIDER;
 
         $summary.html(`
-            <p class="bk-summary__service">${esc(displayName(item))}</p>
+            <p class="bk-summary__service">${esc(bookedName())}</p>
             <p class="bk-summary__when">${esc(capitalize(dateLong(state.date)))}, ${esc(timeText(state.time))}</p>
             <ul class="bk-summary__facts">
                 <li>${esc(durationText(item.duration))}</li>
@@ -786,7 +962,7 @@ App.Pages.Booking = (function () {
     }
 
     function postData() {
-        const item = service(state.serviceId);
+        const item = booked();
         const start = moment(state.date + ' ' + state.time, 'YYYY-MM-DD HH:mm');
         const value = (id) => String($('#' + id).val() ?? '').trim();
 
@@ -813,6 +989,7 @@ App.Pages.Booking = (function () {
                 is_unavailability: false,
                 id_users_provider: state.providerId,
                 id_services: state.serviceId,
+                hair_length: state.hairLength || '',
             },
             manage_mode: Number(manageMode),
         };
@@ -933,7 +1110,9 @@ App.Pages.Booking = (function () {
             state.depth = event.state.depth || 0;
 
             // Never show a step whose choices are missing (e.g. forward to "details" after changing the service).
-            if (step !== 'service' && !state.serviceId) {
+            openLengthSheet(false);
+
+            if (step !== 'service' && (!state.serviceId || !lengthReady())) {
                 render('service');
             } else if (step === 'details' && !state.time) {
                 render('time');
@@ -957,6 +1136,10 @@ App.Pages.Booking = (function () {
         });
 
         $pickedService.on('click', () => goBack());
+
+        $lengthOptions.on('click', '[data-length]', (event) => selectLength(event.currentTarget.dataset.length));
+        $lengthChips.on('click', '[data-length]', (event) => selectLength(event.currentTarget.dataset.length));
+        $('#bk-length-close').on('click', () => openLengthSheet(false));
 
         $providerChips.on('click', '[data-provider]', (event) => {
             const value = event.currentTarget.dataset.provider;
@@ -1002,13 +1185,18 @@ App.Pages.Booking = (function () {
 
         $('#bk-captcha-refresh').on('click', refreshCaptcha);
         $('#bk-cancel-open').on('click', () => openCancelSheet(true));
-        $('#bk-cancel-close, #bk-backdrop').on('click', () => openCancelSheet(false));
+        $('#bk-cancel-close').on('click', () => openCancelSheet(false));
+        $('#bk-backdrop').on('click', () => {
+            openCancelSheet(false);
+            openLengthSheet(false);
+        });
         $('#bk-cancel-confirm').on('click', confirmCancel);
         $('#bk-delete-data').on('click', deletePersonalData);
 
         $(document).on('keydown', (event) => {
-            if (event.key === 'Escape' && !$('#bk-cancel-sheet').prop('hidden')) {
+            if (event.key === 'Escape') {
                 openCancelSheet(false);
+                openLengthSheet(false);
             }
         });
     }
@@ -1044,16 +1232,21 @@ App.Pages.Booking = (function () {
             const start = moment(appointmentData.start_datetime);
 
             state.serviceId = Number(appointmentData.id_services);
+            state.hairLength = appointmentData.hair_length || null;
             state.providerId = Number(appointmentData.id_users_provider);
             state.date = start.format('YYYY-MM-DD');
             state.time = start.format('HH:mm');
-            step = service(state.serviceId) ? 'time' : 'service';
+            step = service(state.serviceId) && lengthReady() ? 'time' : 'service';
         } else {
-            // Links from blondor.cl open the chosen service directly (?service=62), optionally with a provider.
+            // Links from blondor.cl open the chosen service directly (?service=62), optionally with a provider and,
+            // for services priced by length, the length (?length=long).
             const fromLink = service(App.Utils.Url.queryParam('service'));
 
             if (fromLink) {
+                const length = App.Utils.Url.queryParam('length');
+
                 state.serviceId = fromLink.id;
+                state.hairLength = fromLink.variants.some((variant) => variant.hair_length === length) ? length : null;
                 state.providerId = defaultProviderId(fromLink.id);
 
                 const providerParam = Number(App.Utils.Url.queryParam('provider'));
@@ -1062,12 +1255,17 @@ App.Pages.Booking = (function () {
                     state.providerId = providerParam;
                 }
 
-                step = 'time';
+                step = lengthReady() ? 'time' : 'service';
             }
         }
 
         history.replaceState({bkStep: step, depth: 0}, '');
         render(step);
+
+        // A link to a service priced by length, without the length: ask it right away.
+        if (step === 'service' && state.serviceId && !lengthReady()) {
+            openLengthSheet(true);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', initialize);

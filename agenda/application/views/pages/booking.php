@@ -3,7 +3,8 @@
  * Blondor - Reserva pública, móvil primero.
  *
  * Tres pasos, como Fresha y Booksy: servicio → día y hora → tus datos y confirmar. La profesional solo se pregunta
- * cuando más de una hace el servicio; con una sola se asigna sola.
+ * cuando más de una hace el servicio; con una sola se asigna sola. Los servicios que se cobran según el largo del pelo
+ * preguntan el largo en una hoja con la infografía de cada uno.
  */
 
 extend('layouts/booking_mobile_layout');
@@ -91,6 +92,11 @@ $manage_mode = vars('manage_mode');
                 <span class="bk-picked__change">Cambiar</span>
             </button>
 
+            <div class="bk-providers" id="bk-lengths" hidden>
+                <p class="bk-label">Tu largo</p>
+                <div class="bk-chips bk-chips--scroll" id="bk-length-chips" role="radiogroup" aria-label="Largo del pelo"></div>
+            </div>
+
             <div class="bk-providers" id="bk-providers" hidden>
                 <p class="bk-label">¿Con quién?</p>
                 <div class="bk-chips" id="bk-provider-chips" role="radiogroup" aria-label="Profesional"></div>
@@ -175,13 +181,28 @@ $manage_mode = vars('manage_mode');
         <button type="button" class="bk-primary" id="bk-next">Continuar</button>
     </footer>
 
+    <div class="bk-backdrop" id="bk-backdrop" hidden></div>
+
+    <div class="bk-sheet bk-sheet--lengths" id="bk-length-sheet" role="dialog" aria-modal="true" aria-labelledby="bk-length-title" hidden>
+        <div class="bk-sheet__head">
+            <div>
+                <p class="bk-sheet__eyebrow" id="bk-length-service"></p>
+                <h2 id="bk-length-title">¿Qué largo tienes?</h2>
+            </div>
+            <button type="button" class="bk-iconbtn bk-iconbtn--plain" id="bk-length-close" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <p>El precio depende del largo. Mídelo con el pelo suelto, por la espalda.</p>
+        <div class="bk-lengths" id="bk-length-options" role="radiogroup" aria-labelledby="bk-length-title"></div>
+    </div>
+
     <?php if ($manage_mode): ?>
         <form id="cancel-appointment-form" method="post"
               action="<?= site_url('booking_cancellation/of/' . $appointment['hash']) ?>">
             <input id="hidden-cancellation-reason" name="cancellation_reason" type="hidden">
         </form>
 
-        <div class="bk-backdrop" id="bk-backdrop" hidden></div>
         <div class="bk-sheet" id="bk-cancel-sheet" role="dialog" aria-modal="true" aria-labelledby="bk-cancel-title" hidden>
             <h2 id="bk-cancel-title">¿Cancelar tu cita?</h2>
             <p>Cuéntanos el motivo. Si quieres, también puedes cambiarla a otro día.</p>
@@ -204,6 +225,7 @@ $manage_mode = vars('manage_mode');
 
 <?php section('scripts'); ?>
 
+<script src="<?= asset_url('assets/js/utils/hair_length.js') ?>"></script>
 <script src="<?= asset_url('assets/js/http/booking_http_client.js') ?>"></script>
 <script src="<?= asset_url('assets/js/pages/booking.js') ?>"></script>
 

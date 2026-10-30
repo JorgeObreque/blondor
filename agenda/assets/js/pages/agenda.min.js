@@ -232,12 +232,46 @@ App.Pages.Agenda = (function () {
     }
 
     /**
-     * Price of a service as the catalog shows it: "desde $95.500" when it depends on the hair.
+     * Price of a service as the catalog shows it: "$95.500–$138.000" when it is priced by hair length, "desde
+     * $95.500" when it depends on the hair in another way.
      */
     function servicePrice(item) {
+        if (item.variants && item.variants.length) {
+            const prices = item.variants.map((variant) => variant.price);
+
+            return money(Math.min(...prices)) + '–' + money(Math.max(...prices));
+        }
+
         const value = money(item.price);
 
-        return value && item.price_type === 'from' ? 'desde ' + value : value;
+        return value && item.price_type === 'from' && !item.hair_length ? 'desde ' + value : value;
+    }
+
+    /**
+     * The service of the wizard as it is booked: with the price and duration of the chosen hair length.
+     */
+    function bookedService() {
+        const item = service(wizard.serviceId);
+        const variant = item && (item.variants || []).find((entry) => entry.hair_length === wizard.hairLength);
+
+        if (!variant) {
+            return item;
+        }
+
+        return {
+            ...item,
+            name: item.name + ' · ' + variant.label,
+            variants: [],
+            hair_length: variant.hair_length,
+            price: variant.price,
+            duration: variant.duration || item.duration,
+        };
+    }
+
+    function needsLength() {
+        const item = service(wizard.serviceId);
+
+        return Boolean(item && item.variants && item.variants.length && !bookedService().hair_length);
     }
 
     function dayLabel(value, long = false) {
@@ -614,6 +648,7 @@ App.Pages.Agenda = (function () {
             newCustomer: null,
             creating: false,
             serviceId: reschedule ? reschedule.service_id : null,
+            hairLength: reschedule ? reschedule.hair_length || null : null,
             categoryId: null,
             date: reschedule ? reschedule.start.substring(0, 10) : options.date || state.date,
             hour: options.hour || null,
@@ -643,7 +678,7 @@ App.Pages.Agenda = (function () {
 
     function renderSteps() {
         const customerLabel = wizard.customer ? wizard.customer.name : 'Clienta';
-        const svc = service(wizard.serviceId);
+        const svc = bookedService();
         const labels = [
             wizard.step > 1 ? customerLabel : '1 Clienta',
             wizard.step > 2 && svc ? svc.name : '2 Servicio',
@@ -894,7 +929,8 @@ App.Pages.Agenda = (function () {
     // Step 3: time.
 
     function renderTimeStep() {
-        const svc = service(wizard.serviceId);
+        const svc = bookedService();
+        const variants = service(wizard.serviceId).variants || [];
         const dates = [0, 1, 2, 3].map((offset) => addDays(today(), offset));
 
         if (!dates.includes(wizard.date)) {
@@ -902,6 +938,22 @@ App.Pages.Agenda = (function () {
         }
 
         $wizardBody.html(`
+            ${
+                variants.length
+                    ? `<h2>¿Qué largo tiene?</h2>
+                       <div class="wizard-tabs wizard-tabs--wrap" role="radiogroup" aria-label="Largo del pelo">
+                           ${variants
+                               .map(
+                                   (variant) => `
+                               <button type="button" role="radio" class="wizard-tab" data-hair-length="${variant.hair_length}"
+                                       aria-checked="${variant.hair_length === wizard.hairLength}"
+                                       aria-selected="${variant.hair_length === wizard.hairLength}">${esc(variant.label)} · ${money(variant.price)}</button>`,
+                               )
+                               .join('')}
+                       </div>
+                       <p class="wizard-hint">Corto: hasta el hombro · Mediano: hasta el brasier · Largo: hasta la cintura · Extra largo: bajo la cintura.</p>`
+                    : ''
+            }
             <h2>¿Cuándo?</h2>
             <div class="wizard-dates">
                 ${dates
@@ -920,7 +972,11 @@ App.Pages.Agenda = (function () {
                            style="position:absolute; inset:0; opacity:0; width:100%; height:100%">
                 </label>
             </div>
-            <p class="wizard-hint">${esc(dayLabel(wizard.date, true))} · solo horas donde caben los ${duration(svc.duration)} de ${esc(svc.name.toLowerCase())}.</p>
+            <p class="wizard-hint">${
+                needsLength()
+                    ? 'Elige el largo para ver las horas: cambia el precio y puede cambiar la duración.'
+                    : `${esc(dayLabel(wizard.date, true))} · solo horas donde caben los ${duration(svc.duration)} de ${esc(svc.name.toLowerCase())}.`
+            }</p>
             <div id="wizard-hours"><div class="agenda-loading"></div></div>
             <button type="button" class="wizard-link" id="wizard-manual-time">Otra hora (sobrecupo)…</button>
             <div id="wizard-manual" hidden>
@@ -938,14 +994,22 @@ App.Pages.Agenda = (function () {
     }
 
     function loadHours() {
-        const key = wizard.date + '|' + wizard.serviceId;
+        const key = wizard.date + '|' + wizard.serviceId + '|' + (wizard.hairLength || '');
         wizard.hoursKey = key;
+
+        if (needsLength()) {
+            wizard.hours = [];
+            $('#wizard-hours').empty();
+            renderFooter();
+            return;
+        }
 
         App.Http.Agenda.availableHours(
             wizard.date,
             wizard.serviceId,
             state.providerId,
             wizard.reschedule ? wizard.reschedule.id : null,
+            wizard.hairLength,
         )
             .then((response) => {
                 if (!wizard || wizard.hoursKey !== key) {
@@ -1000,9 +1064,9 @@ App.Pages.Agenda = (function () {
     }
 
     function renderFooter() {
-        const svc = service(wizard.serviceId);
+        const svc = bookedService();
 
-        if (!wizard.hour || !svc) {
+        if (!wizard.hour || !svc || needsLength()) {
             $wizardFooter.prop('hidden', true).empty();
             return;
         }
@@ -1041,6 +1105,7 @@ App.Pages.Agenda = (function () {
             id: wizard.reschedule ? wizard.reschedule.id : '',
             provider_id: state.providerId,
             service_id: wizard.serviceId,
+            hair_length: wizard.hairLength || '',
             start: wizard.date + ' ' + wizard.hour,
             notes: wizard.notes,
         };
@@ -2174,10 +2239,24 @@ App.Pages.Agenda = (function () {
         });
 
         $wizardBody.on('click', '[data-service-id]', (event) => {
-            wizard.serviceId = Number($(event.currentTarget).data('service-id'));
+            const serviceId = Number($(event.currentTarget).data('service-id'));
+
+            if (serviceId !== wizard.serviceId) {
+                wizard.hairLength = null;
+            }
+
+            wizard.serviceId = serviceId;
             wizard.force = {};
             wizard.step = 3;
             renderWizard();
+        });
+
+        $wizardBody.on('click', '[data-hair-length]', (event) => {
+            wizard.hairLength = $(event.currentTarget).data('hair-length');
+            wizard.force = {};
+            wizard.error = null;
+            renderSteps();
+            renderTimeStep();
         });
 
         $wizardBody.on('click', '[data-date]', (event) => {

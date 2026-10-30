@@ -44,7 +44,7 @@ App.Http.Booking = (function () {
     /**
      * Free start times ("HH:mm", provider timezone) of a day.
      *
-     * @param {Object} params {serviceId, providerId, date (Y-m-d), duration, appointmentId}
+     * @param {Object} params {serviceId, hairLength, providerId, date (Y-m-d), duration, appointmentId}
      *
      * @return {Promise<Array>}
      */
@@ -55,6 +55,7 @@ App.Http.Booking = (function () {
             data: {
                 csrf_token: vars('csrf_token'),
                 service_id: params.serviceId,
+                hair_length: params.hairLength || '',
                 provider_id: params.providerId,
                 selected_date: params.date,
                 service_duration: params.duration,
@@ -67,7 +68,7 @@ App.Http.Booking = (function () {
     /**
      * Days without any free time in the month of the given date.
      *
-     * @param {Object} params {serviceId, providerId, date (Y-m-d), appointmentId}
+     * @param {Object} params {serviceId, hairLength, providerId, date (Y-m-d), appointmentId}
      *
      * @return {Promise<Array>} Y-m-d dates; every day of the month when the month is full.
      */
@@ -79,6 +80,7 @@ App.Http.Booking = (function () {
                 csrf_token: vars('csrf_token'),
                 provider_id: params.providerId,
                 service_id: params.serviceId,
+                hair_length: params.hairLength || '',
                 selected_date: params.date,
                 manage_mode: Number(Boolean(params.appointmentId)),
                 appointment_id: params.appointmentId,

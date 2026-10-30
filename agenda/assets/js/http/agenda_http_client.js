@@ -52,10 +52,11 @@ App.Http.Agenda = (function () {
         return post('agenda/day', {date, provider_id: providerId});
     }
 
-    function availableHours(date, serviceId, providerId, excludeAppointmentId) {
+    function availableHours(date, serviceId, providerId, excludeAppointmentId, hairLength) {
         return post('agenda/available_hours', {
             date,
             service_id: serviceId,
+            hair_length: hairLength || '',
             provider_id: providerId,
             exclude_appointment_id: excludeAppointmentId || '',
         });

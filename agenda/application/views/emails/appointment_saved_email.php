@@ -48,7 +48,7 @@
                     <?= lang('service') ?>
                 </td>
                 <td style="padding: 3px;">
-                    <?= e($service['name']) ?>
+                    <?= e($service['name']) ?><?= !empty($appointment['hair_length']) ? ' · ' . e(Service_variants_model::label($appointment['hair_length'])) : '' ?>
                 </td>
             </tr>
             <tr>

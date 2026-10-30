@@ -42,6 +42,7 @@ class Agenda extends EA_Controller
         $this->load->model('secretaries_model');
         $this->load->model('roles_model');
         $this->load->model('customer_records_model');
+        $this->load->model('service_variants_model');
 
         $this->load->library('accounts');
         $this->load->library('availability');
@@ -86,6 +87,8 @@ class Agenda extends EA_Controller
             $categories[] = ['id' => (int) $category['id'], 'name' => $category['name']];
         }
 
+        $variants = $this->service_variants_model->by_service();
+
         $services = array_map(
             fn($service) => [
                 'id' => (int) $service['id'],
@@ -94,6 +97,7 @@ class Agenda extends EA_Controller
                 'price' => (float) $service['price'],
                 'price_type' => $service['price_type'] ?? 'fixed',
                 'category_id' => $service['id_service_categories'] ? (int) $service['id_service_categories'] : null,
+                'variants' => $variants[(int) $service['id']] ?? [],
             ],
             $this->services_model->get_available_services(),
         );
@@ -131,7 +135,7 @@ class Agenda extends EA_Controller
             $rows = $this->db
                 ->select(
                     'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
-                    s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price,
+                    s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price, a.hair_length,
                     c.first_name, c.last_name, c.phone_number',
                 )
                 ->from('appointments a')
@@ -166,7 +170,10 @@ class Agenda extends EA_Controller
 
             $date = $this->valid_date(request('date'));
             $provider = $this->allowed_provider((int) request('provider_id'));
-            $service = $this->services_model->find((int) request('service_id'));
+            $service = $this->service_variants_model->apply(
+                $this->services_model->find((int) request('service_id')),
+                request('hair_length') ?: null,
+            );
             $exclude_id = request('exclude_appointment_id') ? (int) request('exclude_appointment_id') : null;
 
             $hours = $this->availability->get_available_hours($date, $service, $provider, $exclude_id);
@@ -255,7 +262,11 @@ class Agenda extends EA_Controller
             }
 
             $provider = $this->allowed_provider((int) ($data['provider_id'] ?? 0));
-            $service = $this->services_model->find((int) ($data['service_id'] ?? 0));
+            // Con la duración y el precio del largo, en los servicios que se cobran según el largo.
+            $service = $this->service_variants_model->apply(
+                $this->services_model->find((int) ($data['service_id'] ?? 0)),
+                ($data['hair_length'] ?? null) ?: null,
+            );
             $start = DateTime::createFromFormat('Y-m-d H:i', (string) ($data['start'] ?? ''));
 
             if (!$start) {
@@ -362,6 +373,7 @@ class Agenda extends EA_Controller
                 'id_users_provider' => (int) $provider['id'],
                 'id_users_customer' => $customer_id,
                 'id_services' => (int) $service['id'],
+                'hair_length' => $service['hair_length'],
                 'notes' => trim((string) ($data['notes'] ?? ($appointment['notes'] ?? ''))),
                 'status' => $appointment_id ? 'Reagendado' : 'Agendado',
             ]);
@@ -478,7 +490,7 @@ class Agenda extends EA_Controller
             $rows = $this->db
                 ->select(
                     'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
-                    a.id_users_provider, s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price,
+                    a.id_users_provider, s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price, a.hair_length,
                     c.first_name, c.last_name, c.phone_number, p.first_name AS provider_first_name',
                 )
                 ->from('appointments a')
@@ -978,7 +990,7 @@ class Agenda extends EA_Controller
         $row = $this->db
             ->select(
                 'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
-                a.id_users_provider, s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price,
+                a.id_users_provider, s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price, a.hair_length,
                 c.first_name, c.last_name, c.phone_number',
             )
             ->from('appointments a')
@@ -1004,7 +1016,12 @@ class Agenda extends EA_Controller
             'status' => $row['status'] ?: 'Agendado',
             'notes' => $row['notes'],
             'service_id' => $row['id_services'] ? (int) $row['id_services'] : null,
-            'service_name' => $row['service_name'],
+            // «Balayage · Largo»: el largo se ve en la agenda, la ficha y el mensaje de WhatsApp.
+            'service_name' => trim(
+                $row['service_name'] .
+                    (!empty($row['hair_length']) ? ' · ' . Service_variants_model::label($row['hair_length']) : ''),
+            ),
+            'hair_length' => $row['hair_length'] ?? null,
             'price' => (float) $row['price'],
             'provider_id' => isset($row['id_users_provider']) ? (int) $row['id_users_provider'] : null,
             'customer_id' => (int) $row['id_users_customer'],
