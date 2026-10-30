@@ -33,4 +33,4 @@ Para volver atrás: `ssh blondor.web 'mysql --defaults-extra-file=~/.my_agenda.c
 | Script | Qué hace | Producción |
 |---|---|---|
 | `2026-10-25_limpieza_servicios.sql` | Borra 31 servicios nunca agendados (depilación, manicure, faciales, masajes corporales, pruebas) y las 3 categorías que quedan vacías | ejecutado 25-10-2026 21:54 (respaldo `~/respaldo_servicios_20261025_215419.sql`) |
-| `2026-10-29_precios_por_largo.sql` | Precios de corto, mediano, largo y extra largo para 9 servicios (propuesta: corto = precio actual, luego +15/30/45 %). Requiere la migración 063 | pendiente |
+| `2026-10-29_precios_por_largo.sql` | Precios de corto, mediano, largo y extra largo para 9 servicios (propuesta: corto = precio actual, luego +15/30/45 %). Requiere la migración 063 | ejecutado 29-10-2026 22:32 (respaldo `~/respaldo_precios_largo_20261029_223148.sql`) |
