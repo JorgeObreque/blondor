@@ -40,6 +40,7 @@ class Availability
         $this->CI->load->model('settings_model');
         $this->CI->load->model('unavailabilities_model');
         $this->CI->load->model('blocked_periods_model');
+        $this->CI->load->model('booking_payments_model');
 
         $this->CI->load->library('ics_file');
     }
@@ -51,6 +52,7 @@ class Availability
      * @param array $service Service data.
      * @param array $provider Provider data.
      * @param int|null $exclude_appointment_id Exclude an appointment from the availability generation.
+     * @param int|null $exclude_hold_id Exclude a pending payment from the availability generation.
      *
      * @return array
      *
@@ -61,15 +63,27 @@ class Availability
         array $service,
         array $provider,
         int $exclude_appointment_id = null,
+        int $exclude_hold_id = null,
     ): array {
         if ($this->CI->blocked_periods_model->is_entire_date_blocked($date)) {
             return [];
         }
 
         if ($service['attendants_number'] > 1) {
-            $available_hours = $this->consider_multiple_attendants($date, $service, $provider, $exclude_appointment_id);
+            $available_hours = $this->consider_multiple_attendants(
+                $date,
+                $service,
+                $provider,
+                $exclude_appointment_id,
+                $exclude_hold_id,
+            );
         } else {
-            $available_periods = $this->get_available_periods($date, $provider, $exclude_appointment_id);
+            $available_periods = $this->get_available_periods(
+                $date,
+                $provider,
+                $exclude_appointment_id,
+                $exclude_hold_id,
+            );
 
             $available_hours = $this->generate_available_hours($date, $service, $available_periods);
         }
@@ -98,6 +112,7 @@ class Availability
         array $service,
         array $provider,
         int $exclude_appointment_id = null,
+        int $exclude_hold_id = null,
     ): array {
         $unavailability_events = $this->CI->unavailabilities_model->get([
             'is_unavailability' => true,
@@ -157,6 +172,15 @@ class Availability
                     $exclude_appointment_id,
                 );
 
+                // Blondor: una reserva a la espera de pago de otro servicio también usa a la profesional.
+                $other_service_attendants_number += $this->CI->booking_payments_model->other_service_holds_count(
+                    $slot_start,
+                    $slot_end,
+                    (int) $service['id'],
+                    (int) $provider['id'],
+                    $exclude_hold_id,
+                );
+
                 if ($other_service_attendants_number > 0) {
                     $slot_start->add($interval);
                     $slot_end->add($interval);
@@ -170,6 +194,15 @@ class Availability
                     $service['id'],
                     $provider['id'],
                     $exclude_appointment_id,
+                );
+
+                // Blondor: las reservas a la espera de pago ocupan lugar también.
+                $appointment_attendants_number += $this->CI->booking_payments_model->holds_count_for_period(
+                    $slot_start,
+                    $slot_end,
+                    (int) $service['id'],
+                    (int) $provider['id'],
+                    $exclude_hold_id,
                 );
 
                 if ($appointment_attendants_number < $service['attendants_number']) {
@@ -325,13 +358,18 @@ class Availability
      * @param string $date Selected date (Y-m-d).
      * @param array $provider Provider data.
      * @param int|null $exclude_appointment_id Exclude an appointment from the availability generation.
+     * @param int|null $exclude_hold_id Exclude a pending payment from the availability generation.
      *
      * @return array Returns an array with the available time periods of the provider.
      *
      * @throws Exception
      */
-    public function get_available_periods(string $date, array $provider, int $exclude_appointment_id = null): array
-    {
+    public function get_available_periods(
+        string $date,
+        array $provider,
+        int $exclude_appointment_id = null,
+        int $exclude_hold_id = null,
+    ): array {
         // Get the service, provider's working plan and provider appointments.
         $working_plan = json_decode($provider['settings']['working_plan'], true);
 
@@ -363,9 +401,16 @@ class Availability
 
         $appointments = array_values(
             array_merge(
-                $this->CI->appointments_model->get($where),
+                // Blondor: una cita cancelada no bloquea el horario (la agenda sí la sigue mostrando).
+                $this->CI->appointments_model->get($where . ' AND IFNULL(status, "") != "Cancelado"'),
                 $this->CI->unavailabilities_model->get($where),
                 $this->CI->blocked_periods_model->get_for_period($date, $date),
+                // Blondor: una reserva a la espera de pago también ocupa el horario.
+                $this->CI->booking_payments_model->holds_for_provider_date(
+                    (int) $provider['id'],
+                    $date,
+                    $exclude_hold_id,
+                ),
             ),
         );
 

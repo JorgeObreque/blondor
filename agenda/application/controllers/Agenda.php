@@ -43,6 +43,7 @@ class Agenda extends EA_Controller
         $this->load->model('roles_model');
         $this->load->model('customer_records_model');
         $this->load->model('service_variants_model');
+        $this->load->model('booking_payments_model');
 
         $this->load->library('accounts');
         $this->load->library('availability');
@@ -136,7 +137,7 @@ class Agenda extends EA_Controller
                 ->select(
                     'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
                     s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price, a.hair_length,
-                    c.first_name, c.last_name, c.phone_number',
+                    c.first_name, c.last_name, c.phone_number' . $this->payment_columns(),
                 )
                 ->from('appointments a')
                 ->join('services s', 's.id = a.id_services', 'left')
@@ -354,6 +355,23 @@ class Agenda extends EA_Controller
 
                     return;
                 }
+
+                // Blondor: una reserva a la espera de pago también ocupa el horario.
+                $pending = $this->booking_payments_model->holds_overlapping(
+                    (int) $provider['id'],
+                    $start->format('Y-m-d H:i:s'),
+                    $end->format('Y-m-d H:i:s'),
+                );
+
+                if ($pending) {
+                    json_response([
+                        'success' => false,
+                        'reason' => 'pending_payment',
+                        'message' => 'Ese horario está apartado por una clienta que está pagando. Intenta en un momento.',
+                    ]);
+
+                    return;
+                }
             }
 
             $appointment = $appointment_id ? $this->appointments_model->find($appointment_id) : [];
@@ -446,6 +464,9 @@ class Agenda extends EA_Controller
             $appointment = $this->appointments_model->find($appointment_id);
 
             $this->check_provider_access((int) $appointment['id_users_provider']);
+
+            // Blondor: una cita con pago no se borra (el dinero quedaría sin registro): se cancela.
+            $this->appointments_model->assert_can_be_deleted((int) $appointment_id);
 
             $this->appointments_model->delete($appointment_id);
 
@@ -991,7 +1012,7 @@ class Agenda extends EA_Controller
             ->select(
                 'a.id, a.start_datetime, a.end_datetime, a.status, a.notes, a.id_services, a.id_users_customer,
                 a.id_users_provider, s.name AS service_name, s.duration, IFNULL(a.price, s.price) AS price, a.hair_length,
-                c.first_name, c.last_name, c.phone_number',
+                c.first_name, c.last_name, c.phone_number' . $this->payment_columns(),
             )
             ->from('appointments a')
             ->join('services s', 's.id = a.id_services', 'left')
@@ -1005,6 +1026,18 @@ class Agenda extends EA_Controller
         }
 
         return $this->with_records([$this->appointment_card($row)])[0];
+    }
+
+    /**
+     * Blondor: las columnas de dinero de la cita (si la migración ya corrió).
+     */
+    private function payment_columns(): string
+    {
+        if (!$this->db->field_exists('payment_status', 'appointments')) {
+            return '';
+        }
+
+        return ', a.payment_status, a.payment_mode, a.paid_amount, a.amount_due, a.total_amount';
     }
 
     private function appointment_card(array $row): array
@@ -1023,6 +1056,14 @@ class Agenda extends EA_Controller
             ),
             'hair_length' => $row['hair_length'] ?? null,
             'price' => (float) $row['price'],
+            // Blondor: el dinero por separado (lo pagado y el saldo), y en qué estado está.
+            'payment' => [
+                'status' => $row['payment_status'] ?? 'internal',
+                'paid' => (float) ($row['paid_amount'] ?? 0),
+                'due' => $row['amount_due'] !== null ? (float) $row['amount_due'] : null,
+                'total' => $row['total_amount'] !== null ? (float) $row['total_amount'] : null,
+                'mode' => $row['payment_mode'] ?? null,
+            ],
             'provider_id' => isset($row['id_users_provider']) ? (int) $row['id_users_provider'] : null,
             'customer_id' => (int) $row['id_users_customer'],
             'customer_name' => trim($row['first_name'] . ' ' . $row['last_name']),

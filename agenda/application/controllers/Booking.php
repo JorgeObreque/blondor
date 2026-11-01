@@ -252,11 +252,20 @@ class Booking extends EA_Controller
             $customer = $this->customers_model->find($appointment['id_users_customer']);
             $customer_token = md5(uniqid(mt_rand(), true));
 
+            $cache = &app_cache();
+
             // Cache the token for 10 minutes.
-            $this->cache->save('customer-token-' . $customer_token, $customer['id'], 600);
+            $cache->save('customer-token-' . $customer_token, $customer['id'], 600);
+
+            // Blondor: capacidad para cambiar ESTA cita. Va en el POST y el servidor la contrasta con la cita:
+            // no se aceptan ids sueltos en el formulario.
+            $manage_token = bin2hex(random_bytes(24));
+
+            $cache->save('manage-token-' . $manage_token, (int) $appointment['id'], 7200);
         } else {
             $manage_mode = false;
             $customer_token = false;
+            $manage_token = null;
             $appointment = null;
             $provider = null;
             $customer = null;
@@ -279,6 +288,7 @@ class Booking extends EA_Controller
             'default_timezone' => setting('default_timezone'),
             'popular_service_ids' => $this->popular_service_ids(),
             'customer_token' => $customer_token,
+            'manage_token' => $manage_token,
             'require_captcha' => (bool) setting('require_captcha'),
         ]);
 
@@ -324,6 +334,7 @@ class Booking extends EA_Controller
             'grouped_timezones' => $grouped_timezones,
             'manage_mode' => $manage_mode,
             'customer_token' => $customer_token,
+            'manage_token' => $manage_token,
             'appointment_data' => $appointment,
             'provider_data' => $provider,
             'customer_data' => $customer,
@@ -334,297 +345,53 @@ class Booking extends EA_Controller
 
     /**
      * Register the appointment to the database.
+     *
+     * Blondor: esta vía pública quedó cerrada. Una reserva solo se confirma después de que el servidor validó un
+     * pago (ver Booking_payment::prepare y Booking_payment::checkout), así que aquí no se crea ninguna cita: se
+     * avisa para que la clienta vuelva al flujo con pago.
      */
     public function register(): void
     {
+        json_response([
+            'success' => false,
+            'message' => 'Las reservas se confirman con el pago en línea. Vuelve a la reserva para continuar.',
+        ], 400);
+    }
+
+    /**
+     * Webpay sends the customer back here: confirm the payment with Transbank.
+     *
+     * This route lives under "booking/.*", which is out of the global CSRF exclusion list of the app, because
+     * Transbank answers with its own POST. The payment is always confirmed from the server: the browser never
+     * decides that something was paid.
+     */
+    public function webpay_return(): void
+    {
+        $this->load->library('booking_payments');
+
         try {
-            $disable_booking = setting('disable_booking');
+            // Transbank manda sus datos por POST (y a veces por query): se leen por nombre.
+            $result = $this->booking_payments->handle_webpay_return([
+                'token_ws' => (string) request('token_ws'),
+                'TBK_TOKEN' => (string) request('TBK_TOKEN'),
+                'TBK_ORDEN_COMPRA' => (string) request('TBK_ORDEN_COMPRA'),
+                'TBK_ID_SESION' => (string) request('TBK_ID_SESION'),
+            ]);
 
-            if ($disable_booking) {
-                abort(403);
-            }
+            $token = (string) ($result['hold_token'] ?? '');
 
-            $post_data = request('post_data');
-            $captcha = request('captcha');
-            $appointment = $post_data['appointment'];
-            $customer = $post_data['customer'];
-            $manage_mode = filter_var($post_data['manage_mode'], FILTER_VALIDATE_BOOLEAN);
-
-            if (!array_key_exists('address', $customer)) {
-                $customer['address'] = '';
-            }
-
-            if (!array_key_exists('city', $customer)) {
-                $customer['city'] = '';
-            }
-
-            if (!array_key_exists('zip_code', $customer)) {
-                $customer['zip_code'] = '';
-            }
-
-            if (!array_key_exists('notes', $customer)) {
-                $customer['notes'] = '';
-            }
-
-            if (!array_key_exists('phone_number', $customer)) {
-                $customer['phone_number'] = '';
-            }
-
-            // Check appointment availability before registering it to the database.
-            $appointment['id_users_provider'] = $this->check_datetime_availability();
-
-            if (!$appointment['id_users_provider']) {
-                throw new RuntimeException(lang('requested_hour_is_unavailable'));
-            }
-
-            $provider = $this->providers_model->find($appointment['id_users_provider']);
-
-            $service = $this->booked_service($appointment['id_services'], $appointment['hair_length'] ?? null);
-
-            // Blondor: el término lo da la duración del servicio (o de su largo), no el navegador.
-            $appointment['hair_length'] = $service['hair_length'];
-            $appointment['end_datetime'] = date(
-                'Y-m-d H:i:s',
-                strtotime($appointment['start_datetime'] . ' +' . (int) $service['duration'] . ' minutes'),
-            );
-
-            $require_captcha = (bool) setting('require_captcha');
-
-            $captcha_phrase = session('captcha_phrase');
-
-            // Validate the CAPTCHA string.
-
-            if ($require_captcha && strtoupper($captcha_phrase) !== strtoupper($captcha)) {
-                json_response([
-                    'captcha_verification' => false,
-                ]);
+            if ($token !== '') {
+                redirect('booking_payment/result/' . $token);
 
                 return;
             }
 
-            $customer['email'] = trim((string) ($customer['email'] ?? ''));
-
-            if ($this->customers_model->exists($customer)) {
-                $customer['id'] = $this->customers_model->find_record_id($customer);
-
-                // Blondor: la clienta se reconoce en silencio por su correo (la cita queda en su ficha). Lo que deje
-                // en blanco se completa con lo guardado en vez de borrarlo.
-                $stored = $this->customers_model->find($customer['id']);
-
-                foreach (['first_name', 'last_name', 'phone_number', 'address', 'city', 'zip_code'] as $field) {
-                    if (trim((string) ($customer[$field] ?? '')) === '' && !empty($stored[$field])) {
-                        $customer[$field] = $stored[$field];
-                    }
-                }
-
-                $existing_appointments = $this->appointments_model->get([
-                    'id !=' => $manage_mode ? $appointment['id'] : null,
-                    'id_users_customer' => $customer['id'],
-                    'start_datetime <=' => $appointment['start_datetime'],
-                    'end_datetime >=' => $appointment['end_datetime'],
-                ]);
-
-                if (count($existing_appointments)) {
-                    throw new RuntimeException(lang('customer_is_already_booked'));
-                }
-            }
-
-            if (empty($appointment['location']) && !empty($service['location'])) {
-                $appointment['location'] = $service['location'];
-            }
-
-            if (empty($appointment['color']) && !empty($service['color'])) {
-                $appointment['color'] = $service['color'];
-            }
-
-            $customer_ip = $this->input->ip_address();
-
-            // Create the consents (if needed).
-            $consent = [
-                'first_name' => $customer['first_name'] ?? '-',
-                'last_name' => $customer['last_name'] ?? '-',
-                'email' => $customer['email'] ?? '-',
-                'ip' => $customer_ip,
-            ];
-
-            if (setting('display_terms_and_conditions')) {
-                $consent['type'] = 'terms-and-conditions';
-
-                $this->consents_model->save($consent);
-            }
-
-            if (setting('display_privacy_policy')) {
-                $consent['type'] = 'privacy-policy';
-
-                $this->consents_model->save($consent);
-            }
-
-            // Save customer language (the language which is used to render the booking page).
-            $customer['language'] = session('language') ?? config('language');
-
-            $this->customers_model->only($customer, $this->allowed_customer_fields);
-
-            $customer_id = $this->customers_model->save($customer);
-            $customer = $this->customers_model->find($customer_id);
-
-            $appointment['id_users_customer'] = $customer_id;
-            $appointment['is_unavailability'] = false;
-            $appointment['color'] = $service['color'];
-
-            $appointment_status_options_json = setting('appointment_status_options', '[]');
-            $appointment_status_options = json_decode($appointment_status_options_json, true) ?? [];
-            $appointment['status'] = $appointment_status_options[0] ?? null;
-
-            $this->appointments_model->only($appointment, $this->allowed_appointment_fields);
-
-            $appointment_id = $this->appointments_model->save($appointment);
-            $appointment = $this->appointments_model->find($appointment_id);
-
-            $settings = [
-                'company_name' => setting('company_name'),
-                'company_link' => setting('company_link'),
-                'company_email' => setting('company_email'),
-                'date_format' => setting('date_format'),
-                'time_format' => setting('time_format'),
-            ];
-
-            $this->synchronization->sync_appointment_saved($appointment, $service, $provider, $customer, $settings);
-
-            $this->notifications->notify_appointment_saved(
-                $appointment,
-                $service,
-                $provider,
-                $customer,
-                $settings,
-                $manage_mode,
-            );
-
-            $this->webhooks_client->trigger(WEBHOOK_APPOINTMENT_SAVE, $appointment);
-
-            $response = [
-                'appointment_id' => $appointment['id'],
-                'appointment_hash' => $appointment['hash'],
-            ];
-
-            json_response($response);
+            redirect('booking');
         } catch (Throwable $e) {
-            json_exception($e);
+            log_message('error', 'Booking webpay_return: ' . $e->getMessage());
+
+            redirect('booking');
         }
-    }
-
-    /**
-     * Check whether the provider is still available in the selected appointment date.
-     *
-     * It is possible that two or more customers select the same appointment date and time concurrently. The app won't
-     * allow this to happen, so one of the two will eventually get the selected date and the other one will have
-     * to choose for another one.
-     *
-     * Use this method just before the customer confirms the appointment registration. If the selected date was reserved
-     * in the meanwhile, the customer must be prompted to select another time.
-     *
-     * @return int|null Returns the ID of the provider that is available for the appointment.
-     *
-     * @throws Exception
-     */
-    protected function check_datetime_availability(): ?int
-    {
-        $post_data = request('post_data');
-
-        $appointment = $post_data['appointment'];
-
-        $appointment_start = new DateTime($appointment['start_datetime']);
-
-        $date = $appointment_start->format('Y-m-d');
-
-        $hour = $appointment_start->format('H:i');
-
-        $hair_length = $appointment['hair_length'] ?? null;
-
-        if ($appointment['id_users_provider'] === ANY_PROVIDER) {
-            $appointment['id_users_provider'] = $this->search_any_provider(
-                $appointment['id_services'],
-                $date,
-                $hour,
-                $hair_length,
-            );
-
-            return $appointment['id_users_provider'];
-        }
-
-        $service = $this->booked_service($appointment['id_services'], $hair_length);
-
-        $exclude_appointment_id = $appointment['id'] ?? null;
-
-        $provider = $this->providers_model->find($appointment['id_users_provider']);
-
-        $available_hours = $this->availability->get_available_hours(
-            $date,
-            $service,
-            $provider,
-            $exclude_appointment_id,
-        );
-
-        $is_still_available = false;
-
-        $appointment_hour = date('H:i', strtotime($appointment['start_datetime']));
-
-        foreach ($available_hours as $available_hour) {
-            if ($appointment_hour === $available_hour) {
-                $is_still_available = true;
-                break;
-            }
-        }
-
-        return $is_still_available ? $appointment['id_users_provider'] : null;
-    }
-
-    /**
-     * Search for any provider that can handle the requested service.
-     *
-     * This method will return the database ID of the provider with the most available periods.
-     *
-     * @param int $service_id Service ID
-     * @param string $date Selected date (Y-m-d).
-     * @param string|null $hour Selected hour (H:i).
-     * @param string|null $hair_length Hair length, for services priced by length.
-     *
-     * @return int|null Returns the ID of the provider that can provide the service at the selected date.
-     *
-     * @throws Exception
-     */
-    protected function search_any_provider(
-        int $service_id,
-        string $date,
-        string $hour = null,
-        string $hair_length = null,
-    ): ?int {
-        $available_providers = $this->providers_model->get_available_providers(true);
-
-        $service = $this->booked_service($service_id, $hair_length);
-
-        $provider_id = null;
-
-        $max_hours_count = 0;
-
-        foreach ($available_providers as $provider) {
-            foreach ($provider['services'] as $provider_service_id) {
-                if ($provider_service_id == $service_id) {
-                    // Check if the provider is available for the requested date.
-                    $available_hours = $this->availability->get_available_hours($date, $service, $provider);
-
-                    if (
-                        count($available_hours) > $max_hours_count &&
-                        (empty($hour) || in_array($hour, $available_hours))
-                    ) {
-                        $provider_id = $provider['id'];
-
-                        $max_hours_count = count($available_hours);
-                    }
-                }
-            }
-        }
-
-        return $provider_id;
     }
 
     /**
@@ -800,7 +567,7 @@ class Booking extends EA_Controller
     }
 
     /**
-     * Blondor: the most booked services of the last months, shown first on the booking page (as "Más pedidos").
+     * Blondor: the most booked services of the last months, shown first on the booking page (as "Favoritos de nuestras clientas").
      *
      * @param int $limit
      *

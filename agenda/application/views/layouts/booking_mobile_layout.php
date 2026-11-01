@@ -10,7 +10,11 @@
     <meta property="og:title" content="Reserva tu hora | <?= e(vars('company_name') ?: 'Blondor') ?>"/>
     <meta property="og:description" content="Elige tu servicio, día y hora en un minuto."/>
     <meta property="og:url" content="<?= base_url() ?>">
-    <meta property="og:image" content="<?= base_url('assets/img/social-card.png') ?>"/>
+    <meta property="og:image" content="<?= base_url('assets/img/social-card-blondor-v1.png') ?>"/>
+    <meta property="og:image:type" content="image/png"/>
+    <meta property="og:image:width" content="1200"/>
+    <meta property="og:image:height" content="630"/>
+    <meta property="og:image:alt" content="Logo de Blondor"/>
     <meta property="og:type" content="website">
 
     <?php slot('meta'); ?>

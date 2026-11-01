@@ -201,7 +201,9 @@ class Services_model extends EA_Model
      */
     public function delete(int $service_id): void
     {
-        $this->db->delete('services', ['id' => $service_id]);
+        $ci = &get_instance();
+        $ci->load->model('appointments_model');
+        $ci->appointments_model->delete_related_entity('service', $service_id);
     }
 
     /**

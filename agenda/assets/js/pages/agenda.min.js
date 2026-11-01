@@ -610,6 +610,7 @@ App.Pages.Agenda = (function () {
                                     <span class="agenda-status" data-status="${esc(item.status)}">${esc(STATUS_LABELS[item.status] || item.status)}</span>
                                 </span>
                                 <span class="agenda-card__meta">${esc(svc)} · hasta ${hm(item.end)}</span>
+                                ${paymentLine(item)}
                                 ${duplicates.has(item.id) ? '<span class="agenda-card__warn">Cita repetida: revisa y cancela una</span>' : ''}
                             </button>
                         </div>`;
@@ -1262,6 +1263,29 @@ App.Pages.Agenda = (function () {
         }
     }
 
+    /**
+     * Blondor: el dinero de la cita, por separado (lo pagado y el saldo que queda).
+     */
+    function paymentLine(item) {
+        const payment = (item && item.payment) || {};
+
+        if (!payment.paid) {
+            return '';
+        }
+
+        const parts = ['Pagado ' + money(payment.paid)];
+
+        if (payment.due !== null && payment.due !== undefined && Number(payment.due) > 0) {
+            parts.push('saldo ' + money(payment.due));
+        }
+
+        if (payment.status === 'attention') {
+            parts.push('en revisión');
+        }
+
+        return `<span class="agenda-card__paid">${esc(parts.join(' · '))}</span>`;
+    }
+
     function whatsappText(item) {
         const first = (item.customer_name || '').split(' ')[0];
         const date = item.start.substring(0, 10);
@@ -1283,6 +1307,7 @@ App.Pages.Agenda = (function () {
                         <button type="button" class="detail-name" id="detail-profile">${esc(item.customer_name)} ${ICONS.chevron}</button>
                     </h2>
                     <div class="detail-sub">${esc(item.service_name || 'Servicio')}${money(item.price) ? ' · ' + money(item.price) : ''}</div>
+                    ${paymentLine(item)}
                     <div class="detail-when">${esc(dayLabel(date, true))} · ${hm(item.start)} a ${hm(item.end)}</div>
                 </div>
                 <span class="agenda-status" data-status="${esc(item.status)}">${esc(STATUS_LABELS[item.status] || item.status)}</span>
@@ -2466,7 +2491,17 @@ App.Pages.Agenda = (function () {
         }
 
         bindEvents();
-        loadDay();
+        const params = new URLSearchParams(window.location.search);
+        const date = params.get('date');
+        const providerId = Number(params.get('provider'));
+        const appointmentId = Number(params.get('appointment'));
+        if (date && /^\d{4}-\d{2}-\d{2}$/.test(date) && parseYmd(date)) {
+            state.date = date;
+        }
+        if (provider(providerId)) { state.providerId = providerId; }
+        loadDay().then(() => {
+            if (Number.isSafeInteger(appointmentId) && appointmentId > 0) { openDetailById(appointmentId); }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', initialize);

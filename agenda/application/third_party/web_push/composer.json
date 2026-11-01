@@ -1,0 +1,14 @@
+{
+    "name": "blondor/backoffice-web-push",
+    "description": "Isolated Web Push transport for the Blondor backoffice",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "minishlink/web-push": "^9.0"
+    },
+    "config": {
+        "platform": {"php": "8.2.0"},
+        "sort-packages": true,
+        "allow-plugins": false
+    }
+}

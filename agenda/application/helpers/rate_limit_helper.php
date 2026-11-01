@@ -36,7 +36,7 @@ if (!function_exists('rate_limit')) {
             return;
         }
 
-        $CI->load->driver('cache', ['adapter' => 'file']);
+        $cache = &app_cache();
 
         $cache_key = str_replace(':', '', 'rate_limit_key_' . $ip);
 
@@ -44,31 +44,31 @@ if (!function_exists('rate_limit')) {
 
         $current_time = date('Y-m-d H:i:s');
 
-        if ($CI->cache->get($cache_key) === false) {
+        if ($cache->get($cache_key) === false) {
             // First request
             $current_time_plus = date('Y-m-d H:i:s', strtotime('+' . $duration . ' seconds'));
 
-            $CI->cache->save($cache_key, 1, $duration);
+            $cache->save($cache_key, 1, $duration);
 
-            $CI->cache->save($cache_remain_time_key, $current_time_plus, $duration * 2);
+            $cache->save($cache_remain_time_key, $current_time_plus, $duration * 2);
         }
         // Consequent request
         else {
-            $requests = $CI->cache->get($cache_key);
+            $requests = $cache->get($cache_key);
 
-            $time_lost = $CI->cache->get($cache_remain_time_key);
+            $time_lost = $cache->get($cache_remain_time_key);
 
             if ($current_time > $time_lost) {
                 $current_time_plus = date('Y-m-d H:i:s', strtotime('+' . $duration . ' seconds'));
 
-                $CI->cache->save($cache_key, 1, $duration);
+                $cache->save($cache_key, 1, $duration);
 
-                $CI->cache->save($cache_remain_time_key, $current_time_plus, $duration * 2);
+                $cache->save($cache_remain_time_key, $current_time_plus, $duration * 2);
             } else {
-                $CI->cache->save($cache_key, $requests + 1, $duration);
+                $cache->save($cache_key, $requests + 1, $duration);
             }
 
-            $requests = $CI->cache->get($cache_key);
+            $requests = $cache->get($cache_key);
 
             if ($requests > $max_requests) {
                 header('HTTP/1.0 429 Too Many Requests');

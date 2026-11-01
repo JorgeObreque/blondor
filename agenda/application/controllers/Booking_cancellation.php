@@ -3,7 +3,7 @@
 /* ----------------------------------------------------------------------------
  * Easy!Appointments - Online Appointment Scheduler
  *
- * @package     EasyAppointments
+ * @package     Easy!Appointments
  * @author      A.Tselegidis <alextselegidis@gmail.com>
  * @copyright   Copyright (c) Alex Tselegidis
  * @license     https://opensource.org/licenses/GPL-3.0 - GPLv3
@@ -31,7 +31,9 @@ class Booking_cancellation extends EA_Controller
         $this->load->model('providers_model');
         $this->load->model('services_model');
         $this->load->model('customers_model');
+        $this->load->model('booking_payments_model');
 
+        $this->load->library('booking_payments');
         $this->load->library('synchronization');
         $this->load->library('notifications');
         $this->load->library('webhooks_client');
@@ -43,6 +45,10 @@ class Booking_cancellation extends EA_Controller
      * This method removes an appointment from the company's schedule. In order for the appointment to be deleted, the
      * hash string must be provided. The customer can only cancel the appointment if the edit time period is not over
      * yet.
+     *
+     * Blondor: la cancelación es lógica. La cita queda con estado "Cancelado" (así el horario se libera) pero NO se
+     * borra: si tiene un pago, ese dinero queda registrado y se resuelve con el equipo, sin devoluciones ni
+     * penalizaciones inventadas.
      *
      * @param string $appointment_hash This appointment hash identifier.
      */
@@ -82,38 +88,59 @@ class Booking_cancellation extends EA_Controller
 
             $appointment = $occurrences[0];
 
-            $provider = $this->providers_model->find($appointment['id_users_provider']);
+            if ($appointment['status'] === 'Cancelado') {
+                // Ya estaba cancelada: no se avisa dos veces.
+                $this->show_cancelled();
 
-            $customer = $this->customers_model->find($appointment['id_users_customer']);
+                return;
+            }
 
-            $service = $this->services_model->find($appointment['id_services']);
-
-            $settings = [
-                'company_name' => setting('company_name'),
-                'company_email' => setting('company_email'),
-                'company_link' => setting('company_link'),
-                'date_format' => setting('date_format'),
-                'time_format' => setting('time_format'),
-            ];
-
-            $this->appointments_model->delete($appointment['id']);
-
-            $this->synchronization->sync_appointment_deleted($appointment, $provider);
-
-            $this->notifications->notify_appointment_deleted(
-                $appointment,
-                $service,
-                $provider,
-                $customer,
-                $settings,
-                $cancellation_reason,
+            // Blondor: cancelación lógica. La fila se conserva (con su pago) y solo cambia el estado.
+            $appointment = $this->appointments_model->cancel(
+                (int) $appointment['id'],
+                (string) $cancellation_reason,
             );
 
-            $this->webhooks_client->trigger(WEBHOOK_APPOINTMENT_DELETE, $appointment);
+            // El aviso (correo, calendario y webhook) queda en la bandeja: si falla, se reintenta.
+            $this->booking_payments_model->enqueue(
+                'appointment_cancelled',
+                'appointment_cancelled:' . $appointment['id'] . ':' . $appointment['update_datetime'],
+                [
+                    'appointment_id' => (int) $appointment['id'],
+                    'reason' => mb_substr(trim((string) $cancellation_reason), 0, 200),
+                ],
+                ['id_appointments' => (int) $appointment['id']],
+            );
+
+            $this->booking_payments->dispatch_outbox();
         } catch (Throwable $e) {
             log_message('error', 'Booking Cancellation Exception: ' . $e->getMessage());
+
+            // Blondor: no se confirma una cancelación que no ocurrió.
+            html_vars([
+                'page_title' => lang('appointment_cancelled_title'),
+                'company_color' => setting('company_color'),
+                'message_title' => 'No pudimos cancelar la cita',
+                'message_text' => 'Vuelve a intentarlo o escríbenos por WhatsApp para cancelarla.',
+                'message_icon' => base_url('assets/img/error.png'),
+                'google_analytics_code' => setting('google_analytics_code'),
+                'matomo_analytics_url' => setting('matomo_analytics_url'),
+                'matomo_analytics_site_id' => setting('matomo_analytics_site_id'),
+            ]);
+
+            $this->load->view('pages/booking_message');
+
+            return;
         }
 
+        $this->show_cancelled();
+    }
+
+    /**
+     * The "cancelled" page.
+     */
+    protected function show_cancelled(): void
+    {
         html_vars([
             'page_title' => lang('appointment_cancelled_title'),
             'company_color' => setting('company_color'),

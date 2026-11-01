@@ -54,6 +54,7 @@ class Synchronization
         array $provider,
         array $customer,
         array $settings,
+        bool $strict = false,
     ): void {
         try {
             // Google
@@ -106,6 +107,7 @@ class Synchronization
             );
 
             log_message('error', $e->getTraceAsString());
+            if ($strict) { throw $e; }
         }
     }
 
@@ -115,7 +117,7 @@ class Synchronization
      * @param array $appointment Appointment record.
      * @param array $provider Provider record.
      */
-    public function sync_appointment_deleted(array $appointment, array $provider): void
+    public function sync_appointment_deleted(array $appointment, array $provider, bool $strict = false): void
     {
         try {
             // Google
@@ -146,6 +148,7 @@ class Synchronization
                     $e->getMessage(),
             );
             log_message('error', $e->getTraceAsString());
+            if ($strict) { throw $e; }
         }
     }
 

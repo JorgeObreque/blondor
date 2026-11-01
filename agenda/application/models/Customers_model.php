@@ -304,7 +304,9 @@ class Customers_model extends EA_Model
      */
     public function delete(int $customer_id): void
     {
-        $this->db->delete('users', ['id' => $customer_id]);
+        $ci = &get_instance();
+        $ci->load->model('appointments_model');
+        $ci->appointments_model->delete_related_entity('customer', $customer_id);
     }
 
     /**

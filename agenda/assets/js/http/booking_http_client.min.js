@@ -109,6 +109,8 @@ App.Http.Booking = (function () {
      * @param {String} [captcha]
      *
      * @return {Promise<Object>} {appointment_hash} or {captcha_verification: false}
+     *
+     * @deprecated Since the payment: the public booking no longer saves the appointment here.
      */
     function registerAppointment(postData, captcha) {
         const data = {
@@ -128,6 +130,91 @@ App.Http.Booking = (function () {
             url: App.Utils.Url.siteUrl('booking/register'),
             method: 'POST',
             data,
+        });
+    }
+
+    /**
+     * Prepare a booking: the server validates it, holds the slot and returns the payment options.
+     *
+     * @param {Object} postData {appointment, customer, manage_mode, manage_token}
+     * @param {String} idempotencyKey Key that ties this booking to its content.
+     * @param {String} [captcha]
+     *
+     * @return {Promise<Object>} {hold_token, options, total…} or {captcha_verification: false}
+     */
+    function prepareBooking(postData, idempotencyKey, captcha) {
+        const data = {
+            csrf_token: vars('csrf_token'),
+            post_data: postData,
+            idempotency_key: idempotencyKey,
+        };
+
+        if (captcha !== undefined) {
+            data.captcha = captcha;
+        }
+
+        return request({
+            url: App.Utils.Url.siteUrl('booking_payment/prepare'),
+            method: 'POST',
+            data,
+        });
+    }
+
+    /**
+     * Start the payment of a booking: the server returns the Webpay form to submit.
+     *
+     * @param {String} holdToken Token of the booking.
+     * @param {String} mode "deposit" or "full".
+     * @param {String} idempotencyKey Key of the payment attempt.
+     *
+     * @return {Promise<Object>} {url, token, amount}
+     */
+    function checkoutBooking(holdToken, mode, idempotencyKey) {
+        return request({
+            url: App.Utils.Url.siteUrl('booking_payment/checkout'),
+            method: 'POST',
+            data: {
+                csrf_token: vars('csrf_token'),
+                hold_token: holdToken,
+                mode: mode,
+                idempotency_key: idempotencyKey,
+            },
+        });
+    }
+
+    /**
+     * Confirm a reschedule that does not need a new charge.
+     *
+     * @param {String} holdToken Token of the booking.
+     *
+     * @return {Promise<Object>}
+     */
+    function confirmBooking(holdToken) {
+        return request({
+            url: App.Utils.Url.siteUrl('booking_payment/confirm'),
+            method: 'POST',
+            data: {
+                csrf_token: vars('csrf_token'),
+                hold_token: holdToken,
+            },
+        });
+    }
+
+    /**
+     * Give up a booking that was not paid (the slot is freed).
+     *
+     * @param {String} holdToken Token of the booking.
+     *
+     * @return {Promise<Object>}
+     */
+    function releaseBooking(holdToken) {
+        return request({
+            url: App.Utils.Url.siteUrl('booking_payment/release'),
+            method: 'POST',
+            data: {
+                csrf_token: vars('csrf_token'),
+                hold_token: holdToken,
+            },
         });
     }
 
@@ -153,6 +240,10 @@ App.Http.Booking = (function () {
         getAvailableHours,
         getUnavailableDates,
         registerAppointment,
+        prepareBooking,
+        checkoutBooking,
+        confirmBooking,
+        releaseBooking,
         deletePersonalInformation,
     };
 })();

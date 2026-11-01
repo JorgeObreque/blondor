@@ -452,7 +452,7 @@ App.Pages.ServicePrices = (function () {
 
         return `
             <section class="prices-group">
-                <h2 class="prices-group__title">Más pedidos</h2>
+                <h2 class="prices-group__title">Favoritos de nuestras clientas</h2>
                 <div class="prices-top">
                     ${top
                         .map(

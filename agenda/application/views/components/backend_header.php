@@ -40,6 +40,14 @@
                 </a>
             </li>
 
+            <?php $hidden = can('view', PRIV_APPOINTMENTS) ? '' : 'd-none'; ?>
+            <?php $active = uri_string() === 'backoffice_push' ? 'active' : ''; ?>
+            <li class="nav-item <?= $active . $hidden ?>">
+                <a href="<?= site_url('backoffice_push') ?>" class="nav-link">
+                    <i class="fas fa-bell me-2"></i>Notificaciones
+                </a>
+            </li>
+
             <?php $hidden = can('view', PRIV_SERVICES) ? '' : 'd-none'; ?>
             <?php $active = uri_string() === 'precios' ? 'active' : ''; ?>
             <li class="nav-item <?= $active . $hidden ?>">

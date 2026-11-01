@@ -260,6 +260,15 @@ class Calendar extends EA_Controller
                     $appointment['id_users_customer'] = $customer['id'] ?? $customer_data['id'];
                 }
 
+                // Blondor: la reserva interna no necesita Webpay, pero sí respeta los horarios que se están pagando.
+                $this->load->library('slot_lock');
+
+                $this->slot_lock->assert_no_pending_hold(
+                    (int) ($appointment['id_users_provider'] ?? 0),
+                    (string) ($appointment['start_datetime'] ?? ''),
+                    (string) ($appointment['end_datetime'] ?? ''),
+                );
+
                 if ($manage_mode && !empty($appointment['id'])) {
                     $this->synchronization->remove_appointment_on_provider_change($appointment['id']);
                 }

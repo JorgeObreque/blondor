@@ -25,6 +25,8 @@ class Logout extends EA_Controller
      */
     public function index(): void
     {
+        $this->load->library('staff_push');
+        $this->staff_push->disable_session();
         $this->session->sess_destroy();
 
         $company_name = setting('company_name');

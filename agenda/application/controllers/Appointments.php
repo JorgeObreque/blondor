@@ -177,6 +177,9 @@ class Appointments extends EA_Controller
 
             $appointment = $this->appointments_model->find($appointment_id);
 
+            // Blondor: una cita con pago no se borra (el dinero quedaría sin registro): se cancela.
+            $this->appointments_model->assert_can_be_deleted((int) $appointment_id);
+
             $this->appointments_model->delete($appointment_id);
 
             $this->webhooks_client->trigger(WEBHOOK_APPOINTMENT_DELETE, $appointment);

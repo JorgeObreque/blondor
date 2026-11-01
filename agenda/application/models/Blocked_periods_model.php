@@ -51,12 +51,15 @@ class Blocked_periods_model extends EA_Model
     public function save(array $blocked_period): int
     {
         $this->validate($blocked_period);
-
-        if (empty($blocked_period['id'])) {
-            return $this->insert($blocked_period);
-        } else {
-            return $this->update($blocked_period);
-        }
+        $ci = &get_instance();
+        $ci->load->library('slot_lock');
+        $ci->load->model('providers_model');
+        return $ci->slot_lock->locked_interval(
+            array_column($ci->providers_model->get(), 'id'), $blocked_period['start_datetime'], $blocked_period['end_datetime'],
+            function () use ($blocked_period) {
+                return empty($blocked_period['id']) ? $this->insert($blocked_period) : $this->update($blocked_period);
+            },
+        );
     }
 
     /**
@@ -111,6 +114,8 @@ class Blocked_periods_model extends EA_Model
      */
     protected function insert(array $blocked_period): int
     {
+        $this->assert_no_pending_hold($blocked_period);
+
         $blocked_period['create_datetime'] = date('Y-m-d H:i:s');
         $blocked_period['update_datetime'] = date('Y-m-d H:i:s');
 
@@ -119,6 +124,33 @@ class Blocked_periods_model extends EA_Model
         }
 
         return $this->db->insert_id();
+    }
+
+    /**
+     * Blondor: el salón no puede cerrarse sobre una hora que una clienta está pagando en este momento.
+     *
+     * @param array $blocked_period Blocked-period data.
+     *
+     * @throws RuntimeException
+     */
+    protected function assert_no_pending_hold(array $blocked_period): void
+    {
+        $start = (string) ($blocked_period['start_datetime'] ?? '');
+        $end = (string) ($blocked_period['end_datetime'] ?? '');
+
+        if ($start === '' || $end === '') {
+            return;
+        }
+
+        $ci = &get_instance();
+
+        $ci->load->model('booking_payments_model');
+
+        if ($ci->booking_payments_model->holds_overlapping_period($start, $end)) {
+            throw new RuntimeException(
+                'Ese horario está apartado por una clienta que está pagando. Intenta en un momento.',
+            );
+        }
     }
 
     /**
@@ -132,6 +164,8 @@ class Blocked_periods_model extends EA_Model
      */
     protected function update(array $blocked_period): int
     {
+        $this->assert_no_pending_hold($blocked_period);
+
         $blocked_period['update_datetime'] = date('Y-m-d H:i:s');
 
         if (!$this->db->update('blocked_periods', $blocked_period, ['id' => $blocked_period['id']])) {

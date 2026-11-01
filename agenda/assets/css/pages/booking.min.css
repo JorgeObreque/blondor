@@ -140,7 +140,7 @@ body.bk-body {
 
 .bk-progress {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   margin: 0 -16px;
 }
@@ -152,7 +152,8 @@ body.bk-body {
 
 .bk[data-step="service"] .bk-progress span:nth-child(-n + 1),
 .bk[data-step="time"] .bk-progress span:nth-child(-n + 2),
-.bk[data-step="details"] .bk-progress span:nth-child(-n + 3) {
+.bk[data-step="details"] .bk-progress span:nth-child(-n + 3),
+.bk[data-step="payment"] .bk-progress span:nth-child(-n + 4) {
   background: var(--bk-cream);
 }
 
@@ -914,6 +915,37 @@ body.bk-locked {
   font-size: 16px;
 }
 
+.bk-phone {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+}
+
+.bk-phone__prefix {
+  display: flex;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-items: center;
+  align-self: stretch;
+  padding: 0 14px;
+  border: 1px solid #c8d4df;
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: var(--bk-surface);
+  color: var(--bk-ink-2);
+  font-weight: 700;
+}
+
+.bk-phone input {
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  border-radius: 0 12px 12px 0;
+}
+
 .bk-field textarea {
   resize: vertical;
 }
@@ -1129,6 +1161,92 @@ body.bk-locked {
   background: var(--bk-danger);
 }
 
+/* Pago ------------------------------------------------------------------------- */
+
+.bk-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.bk-option {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--bk-line);
+  border-radius: var(--bk-radius);
+  background: var(--bk-surface);
+  color: var(--bk-ink);
+  text-align: left;
+}
+
+.bk-option:hover {
+  border-color: var(--bk-blue);
+}
+
+.bk-option.is-selected {
+  border-color: var(--bk-blue);
+  box-shadow: inset 0 0 0 1px var(--bk-blue);
+  background: var(--bk-blue-soft);
+}
+
+.bk-option__name {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.bk-option__amount {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--bk-blue);
+}
+
+.bk-option__due {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--bk-muted);
+}
+
+.bk-note {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--bk-muted);
+}
+
+/* Dinero: lo pagado y el saldo, por separado ---------------------------------- */
+
+.bk-money {
+  border: 1px solid var(--bk-line);
+  border-radius: var(--bk-radius);
+  background: var(--bk-surface);
+  padding: 4px 16px;
+}
+
+.bk-money__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 14px;
+  color: var(--bk-ink-2);
+}
+
+.bk-money__row + .bk-money__row {
+  border-top: 1px solid var(--bk-line);
+}
+
+.bk-money__row strong {
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--bk-ink);
+}
+
 /* Confirmación ----------------------------------------------------------------- */
 
 .bk-done {
@@ -1153,6 +1271,11 @@ body.bk-locked {
   width: 32px;
   height: 32px;
   stroke-width: 2.5;
+}
+
+.bk-done__icon--warn {
+  background: var(--bk-danger-soft);
+  color: var(--bk-danger);
 }
 
 .bk-done h2 {

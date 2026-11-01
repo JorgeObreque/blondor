@@ -16,6 +16,9 @@
         <div class="agenda-head__row">
             <h1 id="agenda-title" class="agenda-head__title">Hoy</h1>
             <div class="agenda-head__actions">
+                <a href="<?= e(site_url('backoffice_push')) ?>" class="agenda-iconbtn" aria-label="Notificaciones">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                </a>
                 <button type="button" id="agenda-clients" class="agenda-iconbtn" aria-label="Clientas">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
                 </button>

@@ -60,6 +60,7 @@ class Notifications
         array $customer,
         array $settings,
         bool $manage_mode = false,
+        bool $strict = false,
     ): void {
         try {
             $current_language = config('language');
@@ -190,6 +191,7 @@ class Notifications
                     $e->getMessage(),
             );
             log_message('error', $e->getTraceAsString());
+            if ($strict) { throw $e; }
         } finally {
             config(['language' => $current_language ?? 'english']);
             $this->CI->lang->load('translations');
@@ -212,6 +214,7 @@ class Notifications
         array $customer,
         array $settings,
         string $cancellation_reason = '',
+        bool $strict = false,
     ): void {
         try {
             $current_language = config('language');
@@ -316,6 +319,7 @@ class Notifications
                     $e->getMessage(),
             );
             log_message('error', $e->getTraceAsString());
+            if ($strict) { throw $e; }
         } finally {
             config(['language' => $current_language ?? 'english']);
             $this->CI->lang->load('translations');

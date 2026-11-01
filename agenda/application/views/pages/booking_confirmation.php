@@ -63,8 +63,24 @@ $service_name = mb_strtoupper(mb_substr($service_name, 0, 1)) . mb_substr($servi
             <p class="bk-done__note">Te enviamos la confirmación a <strong><?= e($summary['email']) ?></strong>. Si no la ves, revisa la carpeta de spam.</p>
         <?php endif; ?>
 
+        <?php if (!empty($summary['paid'])): ?>
+            <div class="bk-money">
+                <div class="bk-money__row">
+                    <span>Pagado</span>
+                    <strong><?= e('$' . number_format((float) $summary['paid'], 0, ',', '.')) ?></strong>
+                </div>
+                <?php if ($summary['due'] !== null): ?>
+                    <div class="bk-money__row">
+                        <span>Saldo a pagar en el salón</span>
+                        <strong><?= e('$' . number_format((float) $summary['due'], 0, ',', '.')) ?></strong>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
         <div class="bk-done__actions">
-            <a class="bk-primary" href="<?= e(vars('add_to_google_url')) ?>" target="_blank" rel="noopener">
+            <a class="bk-primary" href="https://blondor.cl">Volver a Blondor</a>
+            <a class="bk-secondary" href="<?= e(vars('add_to_google_url')) ?>" target="_blank" rel="noopener">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M12 13v4M10 15h4"/></svg>
                 Agregar a mi calendario
             </a>

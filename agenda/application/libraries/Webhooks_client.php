@@ -51,13 +51,13 @@ class Webhooks_client
      *
      * @return void|null
      */
-    public function trigger(string $action, array $payload)
+    public function trigger(string $action, array $payload, bool $strict = false)
     {
         $webhooks = $this->CI->webhooks_model->get();
 
         foreach ($webhooks as $webhook) {
             if (str_contains($webhook['actions'], $action)) {
-                $this->call($webhook, $action, $payload);
+                $this->call($webhook, $action, $payload, $strict);
             }
         }
     }
@@ -69,7 +69,7 @@ class Webhooks_client
      * @param string $action
      * @param array $payload
      */
-    private function call(array $webhook, string $action, array $payload): void
+    private function call(array $webhook, string $action, array $payload, bool $strict = false): void
     {
         try {
             $client = new Client();
@@ -90,6 +90,7 @@ class Webhooks_client
                     $e->getMessage(),
             );
             log_message('error', $e->getTraceAsString());
+            if ($strict) { throw $e; }
         }
     }
 }

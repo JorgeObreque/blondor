@@ -24,6 +24,13 @@ $field = function (string $id, string $name, string $label, string $type, string
         <?php if ($type === 'textarea'): ?>
             <textarea id="<?= $id ?>" rows="2" maxlength="<?= $maxlength ?>" <?= $required ? 'required' : '' ?>
                       placeholder="<?= e($hint ?? '') ?>"></textarea>
+        <?php elseif ($type === 'tel'): ?>
+            <span class="bk-phone">
+                <span class="bk-phone__prefix" id="phone-country-code">+56</span>
+                <input id="<?= $id ?>" type="tel" autocomplete="tel-national" maxlength="20"
+                       inputmode="numeric" aria-describedby="phone-country-code" <?= $required ? 'required' : '' ?>
+                       placeholder="9 1234 5678">
+            </span>
         <?php else: ?>
             <input id="<?= $id ?>" type="<?= $type ?>" autocomplete="<?= $autocomplete ?>" maxlength="<?= $maxlength ?>"
                    <?= $type === 'tel' ? 'inputmode="tel"' : '' ?> <?= $required ? 'required' : '' ?>
@@ -55,7 +62,7 @@ $manage_mode = vars('manage_mode');
             <span class="bk-top__count" id="bk-count">Paso 1 de 3</span>
         </div>
         <h1 class="bk-top__title" id="bk-title">Elige tu servicio</h1>
-        <div class="bk-progress" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="bk-progress" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     </header>
 
     <?php if ($manage_mode): ?>
@@ -120,7 +127,7 @@ $manage_mode = vars('manage_mode');
                     <?php $field('first-name', 'first_name', 'Nombre', 'text', 'given-name', 100); ?>
                     <?php $field('last-name', 'last_name', 'Apellido', 'text', 'family-name', 120); ?>
                 </div>
-                <?php $field('phone-number', 'phone_number', 'Teléfono (WhatsApp)', 'tel', 'tel', 60, '+56 9 1234 5678'); ?>
+                <?php $field('phone-number', 'phone_number', 'Teléfono (WhatsApp)', 'tel', 'tel-national', 20, '9 1234 5678'); ?>
                 <?php $field('email', 'email', 'Correo', 'email', 'email', 120, 'Para enviarte la confirmación'); ?>
                 <?php $field('address', 'address', 'Dirección', 'text', 'street-address', 120); ?>
                 <?php $field('city', 'city', 'Comuna', 'text', 'address-level2', 120); ?>
@@ -172,6 +179,11 @@ $manage_mode = vars('manage_mode');
                     <button type="button" class="bk-link-danger" id="bk-delete-data">Borrar mis datos personales</button>
                 <?php endif; ?>
             </form>
+        </section>
+
+        <!-- Paso 4: pago -->
+        <section class="bk-step" data-step="payment" hidden>
+            <div id="bk-payment"><!-- JS --></div>
         </section>
     </main>
 

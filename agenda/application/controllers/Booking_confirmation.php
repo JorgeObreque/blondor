@@ -65,6 +65,10 @@ class Booking_confirmation extends EA_Controller
         $hair_length = $appointment['hair_length'] ?? null;
         $duration = (int) round((strtotime($appointment['end_datetime']) - strtotime($appointment['start_datetime'])) / 60);
 
+        // Blondor: el dinero por separado: lo pagado y el saldo que queda.
+        $paid = (float) ($appointment['paid_amount'] ?? 0);
+        $due = $appointment['amount_due'] !== null ? (float) $appointment['amount_due'] : null;
+
         html_vars([
             'page_title' => lang('success'),
             'summary' => [
@@ -78,6 +82,12 @@ class Booking_confirmation extends EA_Controller
                 'price_type' => $hair_length ? 'fixed' : $service['price_type'] ?? 'fixed',
                 'email' => $customer['email'] ?? '',
                 'manage_url' => site_url('booking/reschedule/' . $appointment['hash']),
+                'paid' => $paid,
+                'due' => $due,
+                'payment_status' => $appointment['payment_status'] ?? 'internal',
+                'total_amount' => $appointment['total_amount'] !== null
+                    ? (float) $appointment['total_amount']
+                    : null,
             ],
             'company_color' => setting('company_color'),
             'google_analytics_code' => setting('google_analytics_code'),

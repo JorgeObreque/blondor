@@ -7,6 +7,13 @@
     <meta name="theme-color" content="#35A768">
     <meta name="google" content="notranslate">
 
+    <?php if (can('view', PRIV_APPOINTMENTS)): ?>
+        <link rel="manifest" href="<?= e(site_url('backoffice_push/manifest')) ?>">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-title" content="Blondor">
+        <link rel="apple-touch-icon" href="<?= e(base_url('assets/img/pwa/blondor-180.png')) ?>">
+    <?php endif; ?>
+
     <?php slot('meta'); ?>
 
     <title><?= vars('page_title') ?? lang('backend_section') ?> | BLONDOR</title>

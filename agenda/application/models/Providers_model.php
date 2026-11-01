@@ -446,7 +446,9 @@ class Providers_model extends EA_Model
      */
     public function delete(int $provider_id): void
     {
-        $this->db->delete('users', ['id' => $provider_id]);
+        $ci = &get_instance();
+        $ci->load->model('appointments_model');
+        $ci->appointments_model->delete_related_entity('provider', $provider_id);
     }
 
     /**

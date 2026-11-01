@@ -58,17 +58,50 @@ class Appointments_model extends EA_Model
      *
      * @throws InvalidArgumentException
      */
-    public function save(array $appointment): int
+    public function save(array $appointment, ?int $payment_hold_id = null): int
     {
         $this->validate($appointment);
+        $ci = &get_instance();
+        $ci->load->library('slot_lock');
+        $ci->load->model('booking_payments_model');
 
-        $this->set_price($appointment);
-
-        if (empty($appointment['id'])) {
-            return $this->insert($appointment);
-        } else {
-            return $this->update($appointment);
-        }
+        return $ci->slot_lock->locked_interval(
+            [(int) $appointment['id_users_provider']],
+            $appointment['start_datetime'],
+            $appointment['end_datetime'],
+            function () use ($appointment, $payment_hold_id, $ci) {
+                if (($appointment['status'] ?? '') !== 'Cancelado' && $ci->booking_payments_model->holds_overlapping(
+                    (int) $appointment['id_users_provider'], $appointment['start_datetime'],
+                    $appointment['end_datetime'], $payment_hold_id,
+                )) {
+                    throw new RuntimeException('Ese horario está apartado por una clienta que está pagando.');
+                }
+                $current = null;
+                if (!empty($appointment['id'])) {
+                    $current = $this->find((int) $appointment['id']);
+                    if ($this->is_paid($current)) {
+                        if ((int) $appointment['id_services'] !== (int) $current['id_services']
+                            || ($appointment['hair_length'] ?? $current['hair_length']) !== $current['hair_length']) {
+                            throw new RuntimeException('Cambiar el servicio de una cita pagada requiere gestión explícita.');
+                        }
+                        foreach (['price', 'total_amount', 'paid_amount', 'amount_due', 'payment_status',
+                            'payment_mode', 'id_booking_holds'] as $field) {
+                            $appointment[$field] = $current[$field];
+                        }
+                    }
+                }
+                if ($this->db->field_exists('reminder_schedule_changed_at_utc', 'appointments')) {
+                    $changed = !$current || $current['start_datetime'] !== $appointment['start_datetime']
+                        || (int) $current['id_users_provider'] !== (int) $appointment['id_users_provider'];
+                    $appointment['reminder_schedule_changed_at_utc'] = $changed
+                        ? gmdate('Y-m-d H:i:s') : $current['reminder_schedule_changed_at_utc'];
+                }
+                if ($payment_hold_id === null) {
+                    $this->set_price($appointment);
+                }
+                return empty($appointment['id']) ? $this->insert($appointment) : $this->update($appointment);
+            },
+        );
     }
 
     /**
@@ -206,6 +239,8 @@ class Appointments_model extends EA_Model
      * changes), so later price changes do not rewrite the history. Services priced by hair length take the price of
      * that length. Without a price ($0) it stays NULL and the service price is used.
      *
+     * A paid appointment is never revalued: its price is the one the client paid.
+     *
      * @param array $appointment Associative array with the appointment data.
      */
     protected function set_price(array &$appointment): void
@@ -226,10 +261,21 @@ class Appointments_model extends EA_Model
         }
 
         if (!empty($appointment['id'])) {
+            $columns = $has_length ? 'id_services, hair_length' : 'id_services';
+
+            if ($this->db->field_exists('payment_status', 'appointments')) {
+                $columns .= ', payment_status, paid_amount';
+            }
+
             $current = $this->db
-                ->select($has_length ? 'id_services, hair_length' : 'id_services')
+                ->select($columns)
                 ->get_where('appointments', ['id' => $appointment['id']])
                 ->row_array();
+
+            // Blondor: una cita pagada conserva el precio con el que se pagó.
+            if ($current && $this->is_paid($current)) {
+                return;
+            }
 
             $same_service = $current && (int) $current['id_services'] === (int) $appointment['id_services'];
 
@@ -263,6 +309,20 @@ class Appointments_model extends EA_Model
         }
 
         $appointment['price'] = $price;
+    }
+
+    /**
+     * Whether an appointment already has money on it (a paid deposit, a paid service or a case under review).
+     *
+     * @param array $appointment Appointment row (with "payment_status" and "paid_amount").
+     */
+    public function is_paid(array $appointment): bool
+    {
+        if (in_array($appointment['payment_status'] ?? '', ['deposit_paid', 'paid', 'attention'], true)) {
+            return true;
+        }
+
+        return (float) ($appointment['paid_amount'] ?? 0) > 0;
     }
 
     /**
@@ -309,6 +369,103 @@ class Appointments_model extends EA_Model
     }
 
     /**
+     * Cancel an appointment logically: the row stays (with its payment) and only the status changes.
+     *
+     * The row is updated directly instead of going through save(), because save() expects the whole appointment and
+     * would recalculate the price. Here the price that was paid must stay exactly as it is.
+     *
+     * @param int $appointment_id Appointment ID.
+     * @param string $reason Reason of the cancellation (kept in the notes).
+     *
+     * @return array The cancelled appointment.
+     *
+     * @throws RuntimeException
+     */
+    public function cancel(int $appointment_id, string $reason = ''): array
+    {
+        $appointment = $this->find($appointment_id);
+
+        if (!$appointment) {
+            throw new RuntimeException('La cita que se quiere cancelar no existe.');
+        }
+
+        if ($appointment['status'] === 'Cancelado') {
+            return $appointment;
+        }
+
+        $notes = trim((string) ($appointment['notes'] ?? ''));
+
+        if ($reason !== '') {
+            $notes = $notes === ''
+                ? 'Cancelada: ' . mb_substr(trim($reason), 0, 200)
+                : $notes . ' | Cancelada: ' . mb_substr(trim($reason), 0, 200);
+        }
+
+        $this->db->update(
+            'appointments',
+            [
+                'status' => 'Cancelado',
+                'notes' => $notes,
+                'update_datetime' => date('Y-m-d H:i:s'),
+            ],
+            ['id' => $appointment_id],
+        );
+
+        return $this->find($appointment_id);
+    }
+
+    /**
+     * An appointment with money on it is not deleted: it is cancelled, so the payment stays registered.
+     *
+     * @param int $appointment_id Appointment ID.
+     *
+     * @throws RuntimeException
+     */
+    public function assert_can_be_deleted(int $appointment_id): void
+    {
+        $appointment = $this->find($appointment_id);
+
+        if ($this->is_paid($appointment)) {
+            throw new RuntimeException(
+                'Esta cita tiene un pago: cancélala (estado Cancelado) en vez de borrarla, para que el pago quede ' .
+                'registrado.',
+            );
+        }
+    }
+
+    /** Prevent cascading entity deletion from removing paid appointments or live holds. */
+    public function delete_related_entity(string $relation, int $id): void
+    {
+        [$table, $column] = match ($relation) {
+            'customer' => ['users', 'id_users_customer'],
+            'provider' => ['users', 'id_users_provider'],
+            'service' => ['services', 'id_services'],
+            default => throw new InvalidArgumentException('Relación inválida.'),
+        };
+        $this->db->trans_begin();
+        try {
+            $this->db->query('SELECT id FROM `' . $this->db->dbprefix($table) . '` WHERE id = ? FOR UPDATE', [$id]);
+            $paid = $this->db->query(
+                'SELECT id FROM `' . $this->db->dbprefix('appointments') . "` WHERE `$column` = ?" .
+                " AND (paid_amount > 0 OR payment_status IN ('paid', 'deposit_paid', 'attention')) FOR UPDATE", [$id],
+            )->row_array();
+            $held = $this->db->query(
+                'SELECT id FROM `' . $this->db->dbprefix('booking_holds') . "` WHERE `$column` = ?" .
+                " AND status IN ('held', 'attention') FOR UPDATE", [$id],
+            )->row_array();
+            if ($paid || $held) {
+                throw new RuntimeException('No se puede borrar: hay citas pagadas o reservas con pago pendiente. Conserva el historial financiero.');
+            }
+            $this->db->delete($table, ['id' => $id]);
+            if (!$this->db->trans_status()) { throw new RuntimeException('No se pudo borrar el registro.'); }
+            $this->db->trans_commit();
+        } catch (Throwable $e) {
+            $this->db->trans_rollback();
+            throw $e;
+        }
+    }
+
+    /**
      * Remove an existing appointment from the database.
      *
      * @param int $appointment_id Appointment ID.
@@ -317,6 +474,7 @@ class Appointments_model extends EA_Model
      */
     public function delete(int $appointment_id): void
     {
+        $this->assert_can_be_deleted($appointment_id);
         $this->db->delete('appointments', ['id' => $appointment_id]);
     }
 
@@ -442,6 +600,8 @@ class Appointments_model extends EA_Model
             ->group_end()
             ->where('id_services', $service_id)
             ->where('id_users_provider', $provider_id)
+            // Blondor: una cita cancelada no ocupa lugar.
+            ->where('IFNULL(status, "") !=', 'Cancelado')
             ->get()
             ->row_array();
 
@@ -486,6 +646,8 @@ class Appointments_model extends EA_Model
             ->group_end()
             ->where('id_services !=', $service_id)
             ->where('id_users_provider', $provider_id)
+            // Blondor: una cita cancelada no ocupa lugar.
+            ->where('IFNULL(status, "") !=', 'Cancelado')
             ->get()
             ->row_array();
 

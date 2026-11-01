@@ -72,6 +72,17 @@ Fuera de git en el servidor: `agenda/config.php`, `agenda/.well-known`, `agenda/
   `config-sample.php`). En local: ambiente de pruebas de Transbank (tarjeta 4051 8856 0044 6623, CVV 123,
   RUT 11.111.111-1, clave 123). Sin credenciales la venta online queda desactivada.
 
+## Reserva pública con pago
+
+La reserva de `http://localhost:8088/index.php/booking` **pide pago**: la clienta aparta la hora, elige abono
+($15.000 con servicios de $30.000 o más, $8.000 con los más baratos) o pago completo, y paga con Webpay. La cita
+solo se confirma cuando el servidor validó la autorización.
+
+- Detalle del diseño, las tablas, el cron y las pruebas: [`docs/reserva_con_pago.md`](docs/reserva_con_pago.md).
+- Mantenimiento (pagos a medio camino, reservas vencidas y avisos): `php index.php console payments` (cron cada
+  5 minutos).
+- Pruebas locales: `scripts/run_payments_tests.sh` (base aislada; Webpay, correo, calendarios y webhooks simulados).
+
 ## Notas
 
 - El sitio lee servicios y precios de la agenda (`agenda.blondor.cl/index.php/public_catalog`, solo lectura):

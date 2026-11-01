@@ -10,7 +10,11 @@
     <meta property="og:title" content="<?= lang('page_title') . ' ' . vars('company_name') ?> | BLONDOR"/>
     <meta property="og:description" content="Book Your Appointment With A Few Clicks"/>
     <meta property="og:url" content="<?= base_url() ?>">
-    <meta property="og:image" content="<?= base_url('assets/img/social-card.png') ?>"/>
+    <meta property="og:image" content="<?= base_url('assets/img/social-card-blondor-v1.png') ?>"/>
+    <meta property="og:image:type" content="image/png"/>
+    <meta property="og:image:width" content="1200"/>
+    <meta property="og:image:height" content="630"/>
+    <meta property="og:image:alt" content="Logo de Blondor"/>
     <meta property="og:type" content="website">
 
     <?php slot('meta'); ?>

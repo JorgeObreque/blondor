@@ -34,6 +34,7 @@ class Appointments_api_v1 extends EA_Controller
         $this->load->library('api');
         $this->load->library('synchronization');
         $this->load->library('notifications');
+        $this->load->library('slot_lock');
 
         $this->api->auth();
 
@@ -222,6 +223,8 @@ class Appointments_api_v1 extends EA_Controller
                 $appointment['end_datetime'] = $this->calculate_end_datetime($appointment);
             }
 
+            $this->assert_slot_is_free($appointment);
+
             $appointment_id = $this->appointments_model->save($appointment);
 
             $created_appointment = $this->appointments_model->find($appointment_id);
@@ -234,6 +237,26 @@ class Appointments_api_v1 extends EA_Controller
         } catch (Throwable $e) {
             json_exception($e);
         }
+    }
+
+    /**
+     * Blondor: la reserva interna no necesita Webpay, pero sí respeta los horarios que una clienta está pagando.
+     *
+     * @param array $appointment Appointment data.
+     *
+     * @throws RuntimeException
+     */
+    private function assert_slot_is_free(array $appointment): void
+    {
+        $provider_id = (int) ($appointment['id_users_provider'] ?? 0);
+        $start = (string) ($appointment['start_datetime'] ?? '');
+        $end = (string) ($appointment['end_datetime'] ?? '');
+
+        if ($provider_id <= 0 || $start === '' || $end === '') {
+            return;
+        }
+
+        $this->slot_lock->assert_no_pending_hold($provider_id, $start, $end);
     }
 
     /**
@@ -314,6 +337,8 @@ class Appointments_api_v1 extends EA_Controller
 
             $this->appointments_model->api_decode($appointment, $original_appointment);
 
+            $this->assert_slot_is_free($appointment);
+
             $appointment_id = $this->appointments_model->save($appointment);
 
             $updated_appointment = $this->appointments_model->find($appointment_id);
@@ -345,6 +370,9 @@ class Appointments_api_v1 extends EA_Controller
             }
 
             $deleted_appointment = $occurrences[0];
+
+            // Blondor: una cita con pago no se borra (el dinero quedaría sin registro): se cancela.
+            $this->appointments_model->assert_can_be_deleted($id);
 
             $service = $this->services_model->find($deleted_appointment['id_services'], true);
 

@@ -15,3 +15,6 @@ node_modules/
 agenda/storage/uploads/visits/*
 !agenda/storage/uploads/visits/.htaccess
 !agenda/storage/uploads/visits/index.html
+
+# Server-only VAPID keys (never versioned or published)
+.blondor-private/

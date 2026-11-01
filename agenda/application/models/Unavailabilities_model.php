@@ -58,12 +58,15 @@ class Unavailabilities_model extends EA_Model
     public function save(array $unavailability): int
     {
         $this->validate($unavailability);
-
-        if (empty($unavailability['id'])) {
-            return $this->insert($unavailability);
-        } else {
-            return $this->update($unavailability);
-        }
+        $ci = &get_instance();
+        $ci->load->library('slot_lock');
+        $ci->load->model('providers_model');
+        return $ci->slot_lock->locked_interval(
+            [(int) $unavailability['id_users_provider']], $unavailability['start_datetime'], $unavailability['end_datetime'],
+            function () use ($unavailability) {
+                return empty($unavailability['id']) ? $this->insert($unavailability) : $this->update($unavailability);
+            },
+        );
     }
 
     /**
@@ -178,6 +181,9 @@ class Unavailabilities_model extends EA_Model
      */
     protected function insert(array $unavailability): int
     {
+        // Blondor: no se bloquea un horario que una clienta está pagando en este momento.
+        $this->assert_no_pending_hold($unavailability);
+
         $unavailability['book_datetime'] = date('Y-m-d H:i:s');
         $unavailability['create_datetime'] = date('Y-m-d H:i:s');
         $unavailability['update_datetime'] = date('Y-m-d H:i:s');
@@ -192,6 +198,36 @@ class Unavailabilities_model extends EA_Model
     }
 
     /**
+     * Blondor: un bloque de indisponibilidad no puede pisar una reserva que se está pagando.
+     *
+     * @param array $unavailability Unavailability data.
+     *
+     * @throws RuntimeException
+     */
+    protected function assert_no_pending_hold(array $unavailability): void
+    {
+        $provider_id = (int) ($unavailability['id_users_provider'] ?? 0);
+        $start = (string) ($unavailability['start_datetime'] ?? '');
+        $end = (string) ($unavailability['end_datetime'] ?? '');
+
+        if ($provider_id <= 0 || $start === '' || $end === '') {
+            return;
+        }
+
+        $ci = &get_instance();
+
+        $ci->load->model('booking_payments_model');
+
+        $holds = $ci->booking_payments_model->holds_overlapping($provider_id, $start, $end);
+
+        if ($holds) {
+            throw new RuntimeException(
+                'Ese horario está apartado por una clienta que está pagando. Intenta en un momento.',
+            );
+        }
+    }
+
+    /**
      * Update an existing unavailability.
      *
      * @param array $unavailability Associative array with the unavailability data.
@@ -202,6 +238,8 @@ class Unavailabilities_model extends EA_Model
      */
     protected function update(array $unavailability): int
     {
+        $this->assert_no_pending_hold($unavailability);
+
         $unavailability['update_datetime'] = date('Y-m-d H:i:s');
 
         if (!$this->db->update('appointments', $unavailability, ['id' => $unavailability['id']])) {

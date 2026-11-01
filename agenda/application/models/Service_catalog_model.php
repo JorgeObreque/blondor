@@ -174,11 +174,13 @@ class Service_catalog_model extends EA_Model
                 ]);
 
                 // Las citas que vienen se cobran al precio nuevo; las pasadas conservan el suyo.
+                // Blondor: una cita pagada conserva el precio con el que se pagó.
                 $this->db
                     ->where('id_services', $service['id'])
                     ->where('is_unavailability', false)
                     ->where('start_datetime >=', $now)
                     ->where('hair_length IS NULL', null, false)
+                    ->where($this->unpaid_where(), null, false)
                     ->update('appointments', ['price' => $update['price'] > 0 ? $update['price'] : null]);
             }
 
@@ -197,6 +199,7 @@ class Service_catalog_model extends EA_Model
                     ->where('hair_length', $variant_change['hair_length'])
                     ->where('is_unavailability', false)
                     ->where('start_datetime >=', $now)
+                    ->where($this->unpaid_where(), null, false)
                     ->update('appointments', ['price' => $variant_change['new_price']]);
             }
 
@@ -216,6 +219,20 @@ class Service_catalog_model extends EA_Model
         }
 
         return $saved;
+    }
+
+    /**
+     * Blondor: las citas con pago no se revaloran. El precio pagado es parte del histórico financiero.
+     *
+     * @return string The condition that selects the appointments without money on them.
+     */
+    private function unpaid_where(): string
+    {
+        if (!$this->db->field_exists('payment_status', 'appointments')) {
+            return '1 = 1';
+        }
+
+        return 'IFNULL(payment_status, "") NOT IN ("deposit_paid", "paid", "attention") AND IFNULL(paid_amount, 0) = 0';
     }
 
     private function valid_price($value): float

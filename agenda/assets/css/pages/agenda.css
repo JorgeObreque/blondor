@@ -294,6 +294,12 @@
   color: var(--ag-warn);
 }
 
+.agenda-card__paid {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ag-ok);
+}
+
 .agenda-free {
   flex: 1;
   min-height: 46px;

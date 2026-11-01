@@ -28,6 +28,7 @@ App.Pages.Booking = (function () {
     const $days = $('#bk-days');
     const $slots = $('#bk-slots');
     const $summary = $('#bk-summary');
+    const $payment = $('#bk-payment');
     const $form = $('#bk-form');
     const $bar = $('#bk-bar');
     const $barText = $('#bk-bar-text');
@@ -40,7 +41,7 @@ App.Pages.Booking = (function () {
     const moment = window.moment;
     const HairLength = App.Utils.HairLength;
 
-    const STEPS = ['service', 'time', 'details'];
+    const STEPS = ['service', 'time', 'details', 'payment'];
     const ANY_PROVIDER = 'any-provider';
     const STORAGE_KEY = 'blondor.booking.customer';
 
@@ -107,6 +108,14 @@ App.Pages.Booking = (function () {
         loadingMonths: false,
         saving: false,
         deleteArmed: false,
+        // Blondor: la reserva con pago (paso 4).
+        booking: null, // Lo que devuelve el servidor al apartar el horario.
+        paymentMode: null,
+        paying: false,
+        idempotencyKey: null,
+        idempotencySignature: null,
+        paymentKey: null,
+        paymentSignature: null,
     };
 
     let toastTimer = null;
@@ -294,6 +303,7 @@ App.Pages.Booking = (function () {
         service: 'Elige tu servicio',
         time: 'Elige día y hora',
         details: manageMode ? 'Revisa y guarda' : 'Tus datos',
+        payment: 'Paga tu reserva',
     };
 
     function render(step) {
@@ -313,6 +323,8 @@ App.Pages.Booking = (function () {
             renderServices();
         } else if (step === 'time') {
             renderTimeStep();
+        } else if (step === 'payment') {
+            renderPayment();
         } else {
             renderSummary();
         }
@@ -362,11 +374,42 @@ App.Pages.Booking = (function () {
 
         const price = priceText(booked());
 
+        if (state.step === 'payment') {
+            const booking = state.booking || {};
+            const options = booking.options || [];
+
+            const selectedOption = options.find((option) => option.mode === state.paymentMode);
+
+            $barText.html(
+                selectedOption
+                    ? `<span>Pagas ahora</span><strong>${esc(money(selectedOption.amount))}</strong>`
+                    : `<strong>${esc(bookedName())}</strong>`,
+            );
+            $next.text(
+                state.paying
+                    ? 'Vamos al pago…'
+                    : (booking.payment_required ? 'Continuar a Webpay' : 'Guardar cambios'),
+            );
+            $next.prop('disabled', state.paying || (!options.length && booking.payment_required !== false));
+            return;
+        }
+
         $barText.html(
             price ? `<span>Total</span><strong>${esc(price)}</strong>` : `<strong>${esc(bookedName())}</strong>`,
         );
-        $next.text(state.saving ? 'Guardando…' : manageMode ? 'Guardar cambios' : 'Confirmar reserva');
+        $next.text(state.saving ? 'Guardando…' : manageMode ? 'Guardar cambios' : 'Continuar a pagar');
         $next.prop('disabled', state.saving);
+    }
+
+    /**
+     * The total of the booking: exact when the server knows it, "desde" when it does not.
+     */
+    function totalOf(booking) {
+        if (booking.total === null || booking.total === undefined) {
+            return 0;
+        }
+
+        return Number(booking.total) || 0;
     }
 
     // Step 1: service -------------------------------------------------------------------------------------------
@@ -462,7 +505,7 @@ App.Pages.Booking = (function () {
             <nav class="bk-chips bk-chips--scroll" aria-label="Familias">${nav}</nav>
             ${popular.length
                 ? `<section class="bk-group">
-                       <h2 class="bk-group__title">Más pedidos</h2>
+                       <h2 class="bk-group__title">Favoritos de nuestras clientas</h2>
                        <ul class="bk-list">${popular.map(serviceRow).join('')}</ul>
                    </section>`
                 : ''}
@@ -843,6 +886,16 @@ App.Pages.Booking = (function () {
         `);
     }
 
+    function nationalPhone(value) {
+        let digits = String(value || '').replace(/\D/g, '');
+        if (digits.length === 13 && digits.startsWith('0056')) {
+            digits = digits.slice(4);
+        } else if (digits.length === 11 && digits.startsWith('56')) {
+            digits = digits.slice(2);
+        }
+        return digits;
+    }
+
     function fillCustomer() {
         const customer = manageMode ? vars('customer_data') : readSavedCustomer();
         const fields = {
@@ -859,7 +912,7 @@ App.Pages.Booking = (function () {
             const $input = $('#' + id);
 
             if ($input.length && customer && customer[key]) {
-                $input.val(customer[key]);
+                $input.val(id === 'phone-number' ? nationalPhone(customer[key]) : customer[key]);
             }
         });
 
@@ -874,7 +927,7 @@ App.Pages.Booking = (function () {
             const value = App.Utils.Url.queryParam(param);
 
             if (value) {
-                $('#' + id).val(value);
+                $('#' + id).val(id === 'phone-number' ? nationalPhone(value) : value);
             }
         });
 
@@ -907,8 +960,8 @@ App.Pages.Booking = (function () {
                 message = 'Completa este dato.';
             } else if (el.id === 'email' && value && !App.Utils.Validation.email(value)) {
                 message = 'Revisa el correo, parece incompleto.';
-            } else if (el.id === 'phone-number' && value && (value.replace(/\D/g, '').length < 8 || !App.Utils.Validation.phone(value))) {
-                message = 'Revisa el teléfono, debe tener al menos 8 dígitos.';
+            } else if (el.id === 'phone-number' && value && !/^\d{9}$/.test(value)) {
+                message = 'Ingresa los 9 dígitos del teléfono, sin +56.';
             }
 
             setFieldError($input, message);
@@ -971,7 +1024,7 @@ App.Pages.Booking = (function () {
                 first_name: value('first-name'),
                 last_name: value('last-name'),
                 email: value('email'),
-                phone_number: value('phone-number'),
+                phone_number: value('phone-number') ? '+56' + nationalPhone(value('phone-number')) : '',
                 address: value('address'),
                 city: value('city'),
                 zip_code: value('zip-code'),
@@ -997,9 +1050,66 @@ App.Pages.Booking = (function () {
         if (manageMode) {
             data.appointment.id = appointmentData.id;
             data.customer.id = vars('customer_data').id;
+            // Blondor: la capacidad de cambiar esta cita (no un id suelto).
+            data.manage_token = vars('manage_token');
         }
 
         return data;
+    }
+
+    /**
+     * A random key, used to tie a booking (and its payment) to its content.
+     */
+    function randomKey() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+
+        if (window.crypto && window.crypto.getRandomValues) {
+            const bytes = new Uint8Array(16);
+
+            window.crypto.getRandomValues(bytes);
+
+            return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+        }
+
+        return Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+
+    /**
+     * What identifies the content of a booking: if it changes, the key changes too.
+     */
+    function bookingSignature(data) {
+        return JSON.stringify([
+            data.appointment.id_services || '',
+            data.appointment.hair_length || '',
+            data.appointment.start_datetime || '',
+            data.appointment.id_users_provider || '',
+            data.appointment.id || '',
+            String(data.customer.email || '').toLowerCase(),
+        ]);
+    }
+
+    function idempotencyKey(data) {
+        const signature = bookingSignature(data);
+
+        if (state.idempotencySignature !== signature) {
+            state.idempotencySignature = signature;
+            state.idempotencyKey = randomKey();
+        }
+
+        return state.idempotencyKey;
+    }
+
+    function paymentKey() {
+        const signature = state.paymentMode || '';
+
+        if (state.paymentSignature !== signature) {
+            state.paymentSignature = signature;
+            state.paymentKey = randomKey();
+        }
+
+        return state.paymentKey;
     }
 
     async function submit() {
@@ -1014,8 +1124,9 @@ App.Pages.Booking = (function () {
         renderBar();
 
         try {
-            const response = await App.Http.Booking.registerAppointment(
+            const response = await App.Http.Booking.prepareBooking(
                 data,
+                idempotencyKey(data),
                 $captcha.length ? $captcha.val() : undefined,
             );
 
@@ -1025,6 +1136,14 @@ App.Pages.Booking = (function () {
                 return;
             }
 
+            if (!response.hold_token) {
+                showToast(response.message || 'No pudimos preparar tu reserva.');
+                return;
+            }
+
+            state.booking = response;
+            state.paymentMode = null;
+
             if (!manageMode) {
                 const remember = $('#bk-remember').prop('checked');
                 const {first_name, last_name, phone_number, email} = data.customer;
@@ -1032,12 +1151,12 @@ App.Pages.Booking = (function () {
                 writeSavedCustomer(remember ? {first_name, last_name, phone_number, email} : null);
             }
 
-            window.location.href = App.Utils.Url.siteUrl('booking_confirmation/of/' + response.appointment_hash);
+            goTo('payment');
         } catch (error) {
             showToast(error.message);
 
             // Someone else took the hour: show the fresh hours of that day.
-            if (/disponible|available/i.test(error.message)) {
+            if (/disponible|apartado|pagando/i.test(error.message)) {
                 delete state.hours[availabilityKey() + '|' + state.date];
                 state.time = null;
                 goTo('time');
@@ -1048,6 +1167,159 @@ App.Pages.Booking = (function () {
             state.saving = false;
             renderBar();
         }
+    }
+
+    /**
+     * The payment step: what to pay (abono o completo) and how much is left.
+     */
+    function renderPayment() {
+        const booking = state.booking || {};
+        const options = booking.options || [];
+
+        if (booking.payment_required === false) {
+            // Cita ya pagada: se cambia la hora sin cobrar otra vez.
+            $payment.html(`
+                <div class="bk-summary">
+                    <p class="bk-summary__service">${esc(bookedName())}</p>
+                    <p class="bk-summary__when">${esc(capitalize(dateLong(state.date)))}, ${esc(timeText(state.time))}</p>
+                </div>
+                <p class="bk-note">Esta cita ya está pagada: puedes cambiar la hora sin pagar de nuevo.</p>
+            `);
+
+            return;
+        }
+
+        if (!options.length) {
+            $payment.html('<p class="bk-empty">No pudimos preparar tu reserva. Vuelve a intentarlo.</p>');
+
+            return;
+        }
+
+        if (!state.paymentMode || !options.some((option) => option.mode === state.paymentMode)) {
+            state.paymentMode = options[0].mode;
+        }
+
+        const total = booking.total === null || booking.total === undefined ? null : totalOf(booking);
+
+        const totalText = total === null
+            ? 'A confirmar en el salón'
+            : (booking.total_is_exact ? money(total) : 'desde ' + money(total));
+
+        $payment.html(`
+            <div class="bk-summary">
+                <p class="bk-summary__service">${esc(bookedName())}</p>
+                <p class="bk-summary__when">${esc(capitalize(dateLong(state.date)))}, ${esc(timeText(state.time))}</p>
+                <ul class="bk-summary__facts">
+                    <li>Total del servicio: ${esc(totalText)}</li>
+                </ul>
+            </div>
+
+            <p class="bk-label">${options.length > 1 ? 'Cómo quieres pagar' : 'Tu pago'}</p>
+
+            <div class="bk-options" id="bk-payment-options" role="radiogroup" aria-label="Forma de pago">
+                ${options.map((option) => `
+                    <button type="button" class="bk-option ${option.mode === state.paymentMode ? 'is-selected' : ''}"
+                            role="radio" data-mode="${esc(option.mode)}"
+                            aria-checked="${option.mode === state.paymentMode}">
+                        <span class="bk-option__name">${esc(option.label)}</span>
+                        <strong class="bk-option__amount">${esc(money(option.amount))}</strong>
+                        <span class="bk-option__due">${esc(dueText(option))}</span>
+                    </button>`).join('')}
+            </div>
+
+            <p class="bk-note">
+                Pagas con Webpay (Transbank). Tu hora queda apartada mientras completas el pago.
+            </p>
+        `);
+    }
+
+    function dueText(option) {
+        if (option.due === null || option.due === undefined) {
+            return 'El saldo se confirma en el salón';
+        }
+
+        if (Number(option.due) > 0) {
+            return 'Quedan ' + money(option.due) + ' para pagar en el salón';
+        }
+
+        return 'Queda todo pagado';
+    }
+
+    /**
+     * Go to Webpay with the token of the transaction.
+     */
+    function submitToWebpay(payment) {
+        const form = document.createElement('form');
+
+        form.method = 'post';
+        form.action = payment.url;
+
+        const input = document.createElement('input');
+
+        input.type = 'hidden';
+        input.name = 'token_ws';
+        input.value = payment.token;
+
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    /**
+     * Start the payment of the booking (or save the reschedule when it is already paid).
+     */
+    async function pay() {
+        if (state.paying || !state.booking) {
+            return;
+        }
+
+        const booking = state.booking;
+
+        state.paying = true;
+        renderBar();
+
+        try {
+            if (!booking.payment_required) {
+                // Cita ya pagada que solo cambia de hora: no se cobra otra vez.
+                const result = await App.Http.Booking.confirmBooking(booking.hold_token);
+
+                const hash = result.appointment_hash || (appointmentData && appointmentData.hash);
+
+                window.location.href = App.Utils.Url.siteUrl('booking_confirmation/of/' + hash);
+
+                return;
+            }
+
+            const payment = await App.Http.Booking.checkoutBooking(
+                booking.hold_token,
+                state.paymentMode,
+                paymentKey(),
+            );
+
+            submitToWebpay(payment);
+        } catch (error) {
+            showToast(error.message);
+
+            state.paying = false;
+            renderBar();
+        }
+    }
+
+    /**
+     * The client gave up the booking: the slot is freed.
+     */
+    function releaseHold() {
+        const booking = state.booking;
+
+        if (!booking || !booking.hold_token) {
+            return;
+        }
+
+        state.booking = null;
+
+        App.Http.Booking.releaseBooking(booking.hold_token).catch(() => {
+            // The hold expires by itself if this fails.
+        });
     }
 
     function refreshCaptcha() {
@@ -1112,10 +1384,17 @@ App.Pages.Booking = (function () {
             // Never show a step whose choices are missing (e.g. forward to "details" after changing the service).
             openLengthSheet(false);
 
+            // Leaving the payment step frees the slot that was being paid.
+            if (step !== 'payment') {
+                releaseHold();
+            }
+
             if (step !== 'service' && (!state.serviceId || !lengthReady())) {
                 render('service');
             } else if (step === 'details' && !state.time) {
                 render('time');
+            } else if (step === 'payment' && !state.booking) {
+                render('details');
             } else {
                 render(step);
             }
@@ -1164,11 +1443,22 @@ App.Pages.Booking = (function () {
 
         $summary.on('click', '[data-goto]', () => goBack());
 
+        $payment.on('click', '[data-mode]', (event) => {
+            state.paymentMode = event.currentTarget.dataset.mode;
+
+            $payment.find('[data-mode]').attr('aria-checked', 'false');
+            $(event.currentTarget).attr('aria-checked', 'true');
+            renderPayment();
+            renderBar();
+        });
+
         $next.on('click', () => {
             if (state.step === 'time' && state.date && state.time) {
                 goTo('details');
             } else if (state.step === 'details') {
                 submit();
+            } else if (state.step === 'payment') {
+                pay();
             }
         });
 
@@ -1178,6 +1468,9 @@ App.Pages.Booking = (function () {
         });
 
         $form.on('input', 'input, textarea', (event) => {
+            if (event.target.id === 'phone-number') {
+                event.target.value = nationalPhone(event.target.value).slice(0, 9);
+            }
             if ($(event.target).hasClass('is-invalid')) {
                 setFieldError($(event.target), '');
             }
