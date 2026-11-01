@@ -227,6 +227,7 @@ class Booking_payments
                     'amount_due' => null,
                     'customer_snapshot' => json_encode($plan['customer'], JSON_UNESCAPED_UNICODE),
                     'notes' => $plan['notes'],
+                    'attribution_code' => $plan['attribution_code'],
                     'id_users_customer' => $plan['customer_id'],
                     'id_appointments' => $plan['appointment_id'],
                     'ip_hash' => $this->fingerprint((string) ($context['ip'] ?? '')),
@@ -365,6 +366,11 @@ class Booking_payments
             'customer_id' => $existing_appointment['id_users_customer'] ?? null,
             'existing_appointment' => $existing_appointment,
             'notes' => mb_substr(trim((string) ($customer['notes'] ?? '')), 0, 500),
+            // Origen de la reserva: solo en reservas nuevas (una reagenda no la trajo un anuncio). Queda fuera de la
+            // firma porque no cambia qué se reserva ni cuánto se cobra.
+            'attribution_code' => $appointment_id === null
+                ? $this->attribution_code($request['attribution_code'] ?? null)
+                : null,
             'customer' => $this->customer_snapshot($customer, (string) ($context['ip'] ?? '')),
             'signature' => [
                 'service' => $service_id,
@@ -628,6 +634,21 @@ class Booking_payments
         if ($by_email >= self::MAX_HOLDS_PER_EMAIL) {
             throw new RuntimeException('Hicimos demasiados intentos con este correo. Espera unos minutos.');
         }
+    }
+
+    /**
+     * The origin code the browser sent (?ref= of the link), or null when it is missing or does not look like one.
+     * Anyone can type it in the URL, so it is only used to measure: it never changes a price or an amount.
+     */
+    public function attribution_code($value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $code = strtoupper(trim($value));
+
+        return preg_match('/^[A-Z0-9][A-Z0-9:_-]{1,47}$/', $code) ? $code : null;
     }
 
     /**
@@ -1263,6 +1284,8 @@ class Booking_payments
         } else {
             $appointment['status'] = $this->default_status();
             $appointment['color'] = $service['color'] ?? null;
+            // Solo la cita nueva recibe el origen: una cita que ya existía conserva el suyo.
+            $appointment['attribution_code'] = $hold['attribution_code'] ?? null;
         }
 
         $appointment_id = $this->CI->appointments_model->save($appointment, (int) $hold['id']);

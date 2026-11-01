@@ -47,6 +47,13 @@ class Appointments_model extends EA_Model
         'customerId' => 'id_users_customer',
         'googleCalendarId' => 'id_google_calendar',
         'caldavCalendarId' => 'id_caldav_calendar',
+        // Blondor: solo lectura (api_decode no los acepta).
+        'attributionCode' => 'attribution_code',
+        'paymentStatus' => 'payment_status',
+        'paymentMode' => 'payment_mode',
+        'totalAmount' => 'total_amount',
+        'paidAmount' => 'paid_amount',
+        'amountDue' => 'amount_due',
     ];
 
     /**
@@ -785,6 +792,13 @@ class Appointments_model extends EA_Model
                 $appointment['id_google_calendar'] !== null ? $appointment['id_google_calendar'] : null,
             'caldavCalendarId' =>
                 $appointment['id_caldav_calendar'] !== null ? $appointment['id_caldav_calendar'] : null,
+            // Blondor: origen de la reserva y pago (Publicador los lee para atribuir). Solo lectura.
+            'attributionCode' => $appointment['attribution_code'] ?? null,
+            'paymentStatus' => $appointment['payment_status'] ?? null,
+            'paymentMode' => $appointment['payment_mode'] ?? null,
+            'totalAmount' => isset($appointment['total_amount']) ? (float) $appointment['total_amount'] : null,
+            'paidAmount' => isset($appointment['paid_amount']) ? (float) $appointment['paid_amount'] : null,
+            'amountDue' => isset($appointment['amount_due']) ? (float) $appointment['amount_due'] : null,
         ];
 
         $appointment = $encoded_resource;

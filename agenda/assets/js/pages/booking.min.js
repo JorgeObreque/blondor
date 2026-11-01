@@ -74,6 +74,48 @@ App.Pages.Booking = (function () {
     const appointmentData = vars('appointment_data');
     const appointmentId = manageMode && appointmentData ? appointmentData.id : null;
 
+    /**
+     * Blondor: origen de la reserva (?ref=ADS:CMP-XXXXXX-ABCD que pone blondor.cl o el anuncio). Si no viene en el
+     * enlace, se usa la cookie bl_ref de .blondor.cl (la clienta hizo clic en el anuncio y volvió otro día). Gana el
+     * último clic y dura 7 días, igual que en el sitio. Solo mide: el servidor lo valida y no cambia ningún monto.
+     */
+    const ATTRIBUTION = manageMode ? null : captureAttribution();
+
+    function captureAttribution() {
+        const pattern = /^[A-Z0-9][A-Z0-9:_-]{1,47}$/;
+        const clean = (value) => {
+            const code = String(value || '').trim().toUpperCase();
+
+            return pattern.test(code) ? code : null;
+        };
+
+        let fromUrl = null;
+
+        try {
+            fromUrl = clean(new URLSearchParams(window.location.search).get('ref'));
+        } catch (error) {
+            fromUrl = null;
+        }
+
+        if (fromUrl) {
+            const domain = window.location.hostname.endsWith('blondor.cl') ? '; Domain=.blondor.cl' : '';
+            const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+
+            document.cookie = 'bl_ref=' + encodeURIComponent(fromUrl) + '; Max-Age=604800; Path=/; SameSite=Lax'
+                + domain + secure;
+
+            return fromUrl;
+        }
+
+        const match = document.cookie.match(/(?:^|;\s*)bl_ref=([^;]*)/);
+
+        try {
+            return match ? clean(decodeURIComponent(match[1])) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
     const providers = (vars('available_providers') || []).map((provider) => ({
         ...provider,
         id: Number(provider.id),
@@ -1052,6 +1094,8 @@ App.Pages.Booking = (function () {
             data.customer.id = vars('customer_data').id;
             // Blondor: la capacidad de cambiar esta cita (no un id suelto).
             data.manage_token = vars('manage_token');
+        } else if (ATTRIBUTION) {
+            data.attribution_code = ATTRIBUTION;
         }
 
         return data;

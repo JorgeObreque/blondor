@@ -101,6 +101,7 @@ class Payments_selftest
             'test_internal_booking_respects_the_hold',
             'test_price_change_does_not_revalue_a_paid_appointment',
             'test_catalog_change_does_not_revalue_a_paid_appointment',
+            'test_attribution_code_reaches_the_appointment_and_the_api',
             'test_reschedule_keeps_the_payment',
             'test_reschedule_survives_a_catalog_price_change',
             'test_reschedule_of_a_paid_appointment_cannot_change_the_service',
@@ -1222,6 +1223,90 @@ class Payments_selftest
 
         // The price of the service goes back to what it was (the other tests use it).
         $this->CI->db->update('services', ['price' => 45000], ['id' => $this->fixtures['services']['exact']]);
+    }
+
+    /**
+     * El origen (?ref=) viaja de la reserva apartada a la cita pagada y sale por la API; uno inválido se descarta y
+     * una reagenda no lo pisa.
+     */
+    protected function test_attribution_code_reaches_the_appointment_and_the_api(): void
+    {
+        $this->fake_webpay('authorized');
+
+        $request = $this->request('exact', null, null, $this->test_email('attribution'));
+        $request['attribution_code'] = ' ads:cmp-abc123-wxyz ';
+
+        $booking = $this->CI->booking_payments->prepare($request, [
+            'idempotency_key' => 'zztestattribution',
+            'ip' => $this->test_ip('attribution'),
+            'email' => $this->test_email('attribution'),
+        ]);
+
+        $hold = $this->CI->booking_payments_model->find_by_hash($booking['hold_token']);
+
+        $this->equals('ADS:CMP-ABC123-WXYZ', $hold['attribution_code'], 'La reserva apartada guarda el origen');
+
+        $this->CI->booking_payments->start_payment($booking['hold_token'], 'deposit', 'zztestattribution');
+
+        $token = array_key_first($this->transactions);
+
+        $this->CI->booking_payments->handle_webpay_return([
+            'token_ws' => $token,
+            'TBK_ORDEN_COMPRA' => $this->transactions[$token]['buy_order'],
+        ]);
+
+        $appointment = $this->appointment_of($booking['hold_token']);
+
+        $this->equals('ADS:CMP-ABC123-WXYZ', $appointment['attribution_code'], 'La cita pagada guarda el origen');
+
+        $resource = $appointment;
+
+        $this->CI->appointments_model->api_encode($resource);
+
+        $this->equals('ADS:CMP-ABC123-WXYZ', $resource['attributionCode'], 'La API entrega el origen');
+        $this->equals('deposit_paid', $resource['paymentStatus'], 'La API entrega el estado del pago');
+        $this->equals(15000.0, $resource['paidAmount'], 'La API entrega lo pagado');
+        $this->equals(45000.0, $resource['totalAmount'], 'La API entrega el total');
+        $this->equals(30000.0, $resource['amountDue'], 'La API entrega el saldo');
+
+        // La API no deja escribir el origen ni el pago.
+        $decoded = ['attributionCode' => 'HACK', 'paidAmount' => 1, 'paymentStatus' => 'paid'];
+
+        $this->CI->appointments_model->api_decode($decoded);
+
+        $this->ok(
+            !array_key_exists('attribution_code', $decoded) && !array_key_exists('paid_amount', $decoded)
+                && !array_key_exists('payment_status', $decoded),
+            'La API no acepta origen ni pago',
+        );
+
+        // Una reagenda con otro ?ref no cambia el origen de la cita.
+        $move = $this->request('exact', $this->next_slot(), null, $this->test_email('attribution2'));
+        $move['manage_mode'] = 1;
+        $move['appointment']['id'] = (int) $appointment['id'];
+        $move['attribution_code'] = 'ADS:OTRO-ANUNCIO';
+
+        $manage_token = 'zztest_manage_' . bin2hex(random_bytes(8));
+
+        app_cache()->save('manage-token-' . $manage_token, (int) $appointment['id'], 600);
+
+        $moved_booking = $this->CI->booking_payments->prepare($move, [
+            'idempotency_key' => 'zztestattribution2',
+            'manage_token' => $manage_token,
+            'ip' => $this->test_ip('attribution2'),
+            'email' => $this->test_email('attribution2'),
+        ]);
+
+        $this->CI->booking_payments->confirm_free_hold($moved_booking['hold_token']);
+
+        $moved = $this->CI->appointments_model->find((int) $appointment['id']);
+
+        $this->equals('ADS:CMP-ABC123-WXYZ', $moved['attribution_code'], 'La reagenda conserva el origen');
+
+        // Un origen con caracteres raros se descarta (la reserva sigue igual).
+        foreach (['<script>', 'a', str_repeat('A', 49), ['ADS:X']] as $index => $bad) {
+            $this->equals(null, $this->CI->booking_payments->attribution_code($bad), 'Origen inválido #' . $index);
+        }
     }
 
     protected function test_reschedule_keeps_the_payment(): void

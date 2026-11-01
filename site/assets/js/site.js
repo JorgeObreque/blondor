@@ -74,8 +74,61 @@
         return hours + ' h' + (rest ? ' ' + rest + ' min' : '');
     }
 
+    /**
+     * Origen de la visita (?ref=ADS:CMP-XXXXXX-ABCD en los anuncios, ?ref=IG-BIO en redes). Viaja a la agenda en cada
+     * enlace de reserva y, de respaldo, en una cookie de .blondor.cl (la agenda está en otro subdominio y no ve el
+     * localStorage del sitio). Gana el último clic y dura 7 días. Solo sirve para medir: nunca cambia un precio.
+     */
+    const REF_PATTERN = /^[A-Z0-9][A-Z0-9:_-]{1,47}$/;
+
+    function cleanRef(value) {
+        const ref = String(value || '').trim().toUpperCase();
+
+        return REF_PATTERN.test(ref) ? ref : null;
+    }
+
+    function captureRef() {
+        const fromUrl = cleanRef(new URLSearchParams(location.search).get('ref'));
+
+        if (fromUrl) {
+            const domain = location.hostname.endsWith('blondor.cl') ? '; Domain=.blondor.cl' : '';
+            const secure = location.protocol === 'https:' ? '; Secure' : '';
+
+            document.cookie = 'bl_ref=' + encodeURIComponent(fromUrl) + '; Max-Age=604800; Path=/; SameSite=Lax'
+                + domain + secure;
+
+            return fromUrl;
+        }
+
+        const match = document.cookie.match(/(?:^|;\s*)bl_ref=([^;]*)/);
+
+        try {
+            return match ? cleanRef(decodeURIComponent(match[1])) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    const REF = captureRef();
+
     function bookUrl(serviceId, length) {
-        return serviceId ? BOOK + '?service=' + serviceId + (length ? '&length=' + length : '') : BOOK;
+        const params = new URLSearchParams();
+
+        if (serviceId) {
+            params.set('service', serviceId);
+
+            if (length) {
+                params.set('length', length);
+            }
+        }
+
+        if (REF) {
+            params.set('ref', REF);
+        }
+
+        const query = params.toString();
+
+        return query ? BOOK + '?' + query : BOOK;
     }
 
     /**
@@ -275,7 +328,7 @@
         document.getElementById('panels').innerHTML = `
             <div class="svc-fallback">
                 <p>No pudimos cargar la lista de precios. Puedes verlos al reservar.</p>
-                <a class="btn btn--blue" href="${esc(BOOK)}">Ver servicios y reservar</a>
+                <a class="btn btn--blue" href="${esc(bookUrl())}">Ver servicios y reservar</a>
             </div>`;
     }
 

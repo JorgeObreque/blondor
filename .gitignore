@@ -18,3 +18,6 @@ agenda/storage/uploads/visits/*
 
 # Server-only VAPID keys (never versioned or published)
 .blondor-private/
+
+# Log de errores de PHP que genera el hosting
+agenda/error_log

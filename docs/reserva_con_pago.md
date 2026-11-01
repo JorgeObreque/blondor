@@ -177,3 +177,23 @@ Los scripts HTTP/navegador están separados: crean holds en la app local y puede
 
 Nada de esto se puede probar en producción: los pagos de prueba son del ambiente de integración.
 
+## 14. El origen de la reserva (`?ref=`)
+
+Para saber qué anuncio trajo cada cita pagada (lo lee Publicador):
+
+```
+Anuncio → blondor.cl/?ref=ADS:CMP-XXXXXX-ABCD → agenda …/booking?service=62&ref=… → cita pagada con su origen
+```
+
+- `site/assets/js/site.js` toma `?ref=`, lo agrega a todos los enlaces de reserva y lo guarda en la cookie `bl_ref`
+  (`Domain=.blondor.cl`, 7 días, gana el último clic). La agenda está en otro subdominio y no ve el `localStorage`
+  del sitio: por eso la cookie.
+- `booking.js` usa el `ref` del enlace o, si no viene, la cookie, y lo manda como `post_data.attribution_code`. Si la
+  clienta llega directo a la agenda con `?ref=`, la agenda también guarda la cookie.
+- El servidor lo valida (`^[A-Z0-9][A-Z0-9:_-]{1,47}$`, en mayúsculas) y descarta lo demás; queda fuera de la firma de
+  la reserva. Va de `ea_booking_holds.attribution_code` a `ea_appointments.attribution_code` solo en reservas nuevas:
+  una reagenda conserva el origen de la cita.
+- La API (`/api/v1/appointments`) entrega `attributionCode`, `paymentStatus`, `paymentMode`, `totalAmount`,
+  `paidAmount` y `amountDue`. Son de solo lectura: `api_decode` no los acepta.
+- Cualquiera puede escribir un `?ref`: solo sirve para medir y nunca cambia un precio ni un monto.
+- Para tráfico propio sin anuncio se puede usar otro código, por ejemplo `?ref=IG-BIO` en el enlace de Instagram.
