@@ -905,7 +905,10 @@ App.Pages.Booking = (function () {
     }
 
     function whatsappUrl(text) {
-        return 'https://wa.me/' + $page.data('whatsapp') + '?text=' + encodeURIComponent(text);
+        // Con origen (anuncio, bio, etc.) el código va en el mensaje para que la operadora lo copie en la cita.
+        const message = ATTRIBUTION ? text + ' (ref: ' + ATTRIBUTION + ')' : text;
+
+        return 'https://wa.me/' + $page.data('whatsapp') + '?text=' + encodeURIComponent(message);
     }
 
     // Step 3: details and confirmation --------------------------------------------------------------------------

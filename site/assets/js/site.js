@@ -111,6 +111,14 @@
 
     const REF = captureRef();
 
+    /**
+     * Si la clienta prefiere escribir, el código viaja en el mensaje de WhatsApp para que la operadora lo copie en la
+     * cita (Publicador lo busca en las notas). Sin origen el enlace queda igual.
+     */
+    function whatsappText(text) {
+        return REF ? text + ' (ref: ' + REF + ')' : text;
+    }
+
     function bookUrl(serviceId, length) {
         const params = new URLSearchParams();
 
@@ -154,6 +162,20 @@
     function linkBookingButtons() {
         document.querySelectorAll('[data-book]').forEach((link) => {
             link.href = bookUrl(link.dataset.book);
+        });
+
+        if (!REF) {
+            return;
+        }
+
+        document.querySelectorAll('[data-wa]').forEach((link) => {
+            try {
+                const url = new URL(link.href);
+                url.searchParams.set('text', whatsappText(url.searchParams.get('text') || ''));
+                link.href = url.toString();
+            } catch (error) {
+                // Enlace raro: se deja como está.
+            }
         });
     }
 
