@@ -102,6 +102,7 @@ class Payments_selftest
             'test_price_change_does_not_revalue_a_paid_appointment',
             'test_catalog_change_does_not_revalue_a_paid_appointment',
             'test_attribution_code_reaches_the_appointment_and_the_api',
+            'test_funnel_counts_each_step_once_and_lists_unpaid_bookings',
             'test_reschedule_keeps_the_payment',
             'test_reschedule_survives_a_catalog_price_change',
             'test_reschedule_of_a_paid_appointment_cannot_change_the_service',
@@ -274,6 +275,7 @@ class Payments_selftest
 
         $this->CI->load->library('availability');
         $this->CI->load->library('booking_payments');
+        $this->CI->load->library('booking_funnel');
         $this->CI->load->library('deposit_policy');
         $this->CI->load->library('slot_lock');
         $this->CI->load->library('webpay');
@@ -478,6 +480,9 @@ class Payments_selftest
         );
         $this->CI->db->query(
             'DELETE FROM `' . $this->CI->db->dbprefix('outbox_events') . '` WHERE `dedupe_key` LIKE "%zz_test_%"',
+        );
+        $this->CI->db->query(
+            'DELETE FROM `' . $this->CI->db->dbprefix('booking_funnel_events') . '` WHERE `session_id` LIKE "zztest%"',
         );
     }
 
@@ -1307,6 +1312,123 @@ class Payments_selftest
         foreach (['<script>', 'a', str_repeat('A', 49), ['ADS:X']] as $index => $bad) {
             $this->equals(null, $this->CI->booking_payments->attribution_code($bad), 'Origen inválido #' . $index);
         }
+    }
+
+    protected function test_funnel_counts_each_step_once_and_lists_unpaid_bookings(): void
+    {
+        $funnel = $this->CI->booking_funnel;
+        $code = 'ADS:CMP-ZZFUNNEL-' . strtoupper(bin2hex(random_bytes(2)));
+        $today = date('Y-m-d');
+
+        $row_of = function () use ($funnel, $code, $today) {
+            foreach ($funnel->report($today, $today) as $row) {
+                if ($row['attribution_code'] === $code) {
+                    return $row;
+                }
+            }
+
+            return null;
+        };
+
+        // Dos visitas del anuncio: una llega a elegir hora, la otra se va en el sitio.
+        foreach (['site', 'agenda', 'service', 'time', 'time'] as $step) {
+            $this->ok(
+                $funnel->track(['session' => 'zztestfunnelvisit1', 'step' => $step, 'ref' => strtolower($code)]),
+                'Paso válido: ' . $step,
+            );
+        }
+
+        $funnel->track(['session' => 'zztestfunnelvisit2', 'step' => 'site', 'ref' => $code, 'service' => '62']);
+
+        // Inválidos: se descartan sin error.
+        $this->ok(!$funnel->track(['session' => 'zz', 'step' => 'site']), 'Visita con identificador corto');
+        $this->ok(!$funnel->track(['session' => 'zztestfunnelvisit3', 'step' => 'hack']), 'Paso desconocido');
+        $this->ok(!$funnel->track(['session' => "zztest'; drop", 'step' => 'site']), 'Identificador con símbolos');
+
+        $funnel->track(['session' => 'zztestfunnelvisit3', 'step' => 'site', 'ref' => '<script>']);
+
+        $stored = $this->CI->db->get_where('booking_funnel_events', ['session_id' => 'zztestfunnelvisit3'])->row_array();
+
+        $this->ok($stored && $stored['attribution_code'] === null, 'Un origen raro se guarda vacío');
+
+        $row = $row_of();
+
+        $this->equals(2, $row['steps']['site'] ?? null, 'Dos visitas en el sitio');
+        $this->equals(1, $row['steps']['agenda'], 'Una llegó a la agenda');
+        $this->equals(1, $row['steps']['time'], 'Repetir un paso no suma');
+        $this->equals(0, $row['steps']['details'], 'Nadie envió sus datos');
+
+        // Aparta hora y se arrepiente: queda en la lista para recuperarla.
+        $this->fake_webpay('authorized');
+
+        // Teléfono propio: el resto de las pruebas comparte uno y ya tiene citas.
+        $email = $this->test_email('funnel');
+        $phone = '+569' . random_int(10000000, 99999999);
+        $request = $this->request('exact', null, null, $email);
+        $request['customer']['phone_number'] = $phone;
+        $request['attribution_code'] = $code;
+
+        $gave_up = $this->CI->booking_payments->prepare($request, [
+            'idempotency_key' => 'zztestfunnel1',
+            'ip' => $this->test_ip('funnel'),
+            'email' => $email,
+        ]);
+
+        $hold = $this->CI->booking_payments_model->find_by_hash($gave_up['hold_token']);
+
+        $this->CI->booking_payments->release_hold((int) $hold['id']);
+
+        $find = function () use ($funnel, $today, $hold) {
+            foreach ($funnel->abandoned($today, $today) as $item) {
+                if ($item['id'] === (int) $hold['id']) {
+                    return $item;
+                }
+            }
+
+            return null;
+        };
+
+        $item = $find();
+
+        $this->ok($item !== null, 'La reserva sin pagar aparece en la lista');
+        $this->equals($code, $item['attribution_code'] ?? null, 'Con su origen');
+        $this->equals('gave_up', $item['reason'] ?? null, 'Y el motivo');
+        $this->equals($email, $item['email'] ?? null, 'Y el correo para contactarla');
+        $this->equals(false, $item['recovered'] ?? null, 'Todavía no reservó');
+
+        // Vuelve y paga otra hora: queda como recuperada y cuenta como pagada para el anuncio.
+        $request = $this->request('exact', $this->next_slot(), null, $email);
+        $request['customer']['phone_number'] = $phone;
+        $request['attribution_code'] = $code;
+
+        $paid = $this->CI->booking_payments->prepare($request, [
+            'idempotency_key' => 'zztestfunnel2',
+            'ip' => $this->test_ip('funnel'),
+            'email' => $email,
+        ]);
+
+        $this->CI->booking_payments->start_payment($paid['hold_token'], 'deposit', 'zztestfunnel2');
+
+        $token = array_key_last($this->transactions);
+
+        $this->CI->booking_payments->handle_webpay_return([
+            'token_ws' => $token,
+            'TBK_ORDEN_COMPRA' => $this->transactions[$token]['buy_order'],
+        ]);
+
+        $this->equals(true, $find()['recovered'] ?? null, 'Después de pagar queda como recuperada');
+
+        $row = $row_of();
+
+        $this->equals(1, $row['paid'], 'El anuncio suma una reserva pagada');
+        $this->equals(15000.0, $row['paid_amount'], 'Con lo cobrado');
+
+        $paid_ids = array_column(
+            array_filter($funnel->abandoned($today, $today), fn($item) => $item['attribution_code'] === $code),
+            'id',
+        );
+
+        $this->equals([(int) $hold['id']], array_values($paid_ids), 'La reserva pagada no aparece como abandonada');
     }
 
     protected function test_reschedule_keeps_the_payment(): void

@@ -116,6 +116,48 @@ App.Pages.Booking = (function () {
         }
     }
 
+    /**
+     * Blondor: recorrido de la visita (sin datos personales), para ver en qué paso se van las clientas. Usa la cookie
+     * bl_sid de .blondor.cl que también pone el sitio (vence tras 30 minutos sin actividad). Las reagendas no cuentan.
+     */
+    function visitId() {
+        const match = document.cookie.match(/(?:^|;\s*)bl_sid=([a-z0-9]{16,40})/);
+        let id = match ? match[1] : '';
+
+        if (!id) {
+            const bytes = new Uint8Array(12);
+            window.crypto.getRandomValues(bytes);
+            id = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        const domain = window.location.hostname.endsWith('blondor.cl') ? '; Domain=.blondor.cl' : '';
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+
+        document.cookie = 'bl_sid=' + id + '; Max-Age=1800; Path=/; SameSite=Lax' + domain + secure;
+
+        return id;
+    }
+
+    function track(step) {
+        if (manageMode) {
+            return;
+        }
+
+        try {
+            navigator.sendBeacon(
+                App.Utils.Url.siteUrl('funnel/track'),
+                JSON.stringify({session: visitId(), step, ref: ATTRIBUTION, service: state.serviceId || null}),
+            );
+        } catch (error) {
+            // Medir nunca debe romper la reserva.
+        }
+    }
+
+    /**
+     * Llegar a un paso significa que se completó el anterior.
+     */
+    const STEP_DONE = {time: 'service', details: 'time', payment: 'details'};
+
     const providers = (vars('available_providers') || []).map((provider) => ({
         ...provider,
         id: Number(provider.id),
@@ -373,6 +415,10 @@ App.Pages.Booking = (function () {
 
         renderBar();
         window.scrollTo(0, 0);
+
+        if (STEP_DONE[step]) {
+            track(STEP_DONE[step]);
+        }
     }
 
     function goTo(step) {
@@ -1337,6 +1383,8 @@ App.Pages.Booking = (function () {
                 return;
             }
 
+            track('webpay');
+
             const payment = await App.Http.Booking.checkoutBooking(
                 booking.hold_token,
                 state.paymentMode,
@@ -1598,6 +1646,8 @@ App.Pages.Booking = (function () {
                 step = lengthReady() ? 'time' : 'service';
             }
         }
+
+        track('agenda');
 
         history.replaceState({bkStep: step, depth: 0}, '');
         render(step);

@@ -158,6 +158,11 @@ $route['api/v1/settings/(:any)']['put'] = 'api/v1/settings_api_v1/update/$1';
 
 $route['api/v1/availabilities']['get'] = 'api/v1/availabilities_api_v1/get';
 
+// Blondor: recorrido de la reserva y reservas sin pagar (Publicador).
+$route['api/v1/booking_funnel']['get'] = 'api/v1/booking_funnel_api_v1/index';
+
+$route['api/v1/booking_abandoned']['get'] = 'api/v1/booking_funnel_api_v1/abandoned';
+
 /*
 | -------------------------------------------------------------------------
 | CUSTOM ROUTING

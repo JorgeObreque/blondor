@@ -197,3 +197,21 @@ Anuncio → blondor.cl/?ref=ADS:CMP-XXXXXX-ABCD → agenda …/booking?service=6
   `paidAmount` y `amountDue`. Son de solo lectura: `api_decode` no los acepta.
 - Cualquiera puede escribir un `?ref`: solo sirve para medir y nunca cambia un precio ni un monto.
 - Para tráfico propio sin anuncio se puede usar otro código, por ejemplo `?ref=IG-BIO` en el enlace de Instagram.
+- Si la clienta prefiere escribir, los botones de WhatsApp del sitio y de la reserva agregan `(ref: CÓDIGO)` al
+  mensaje. La operadora lo copia en las notas de la cita y Publicador lo encuentra ahí.
+
+## 15. El recorrido de la reserva y las reservas sin pagar
+
+Para ver en qué paso se van las clientas de cada anuncio, y escribirles a las que apartaron hora sin pagar:
+
+- El sitio y la reserva mandan cada paso con `navigator.sendBeacon` a `POST funnel/track` (texto plano, sin CSRF,
+  responde siempre 204): `site` (entró a blondor.cl), `agenda` (abrió la reserva), `service`, `time`, `details` (envió
+  sus datos y la hora quedó apartada) y `webpay` (salió a pagar). Las reagendas no cuentan.
+- La visita se reconoce con la cookie `bl_sid` de `.blondor.cl`: un identificador al azar que vence tras 30 minutos sin
+  actividad. No se guardan datos personales; cada visita cuenta una vez por paso (`ea_booking_funnel_events`).
+- `GET /api/v1/booking_funnel?from=&till=` entrega, por origen, las visitas de cada paso y las reservas pagadas (la
+  primera reserva pagada de cada cita, no sus reagendas) con lo cobrado.
+- `GET /api/v1/booking_abandoned?from=&till=` entrega las reservas nuevas que apartaron hora y terminaron sin pago
+  (`released`/`expired`), con el motivo (`gave_up`, `expired_unpaid`, `left_webpay`, `rejected`), los datos de
+  contacto y `recovered` (la misma clienta, por correo o los 9 dígitos del teléfono, reservó después).
+- Ambas usan el mismo usuario de la API. Publicador las muestra en "Reservas web".

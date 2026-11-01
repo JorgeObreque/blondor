@@ -112,6 +112,39 @@
     const REF = captureRef();
 
     /**
+     * Recorrido de la visita (sin datos personales): un identificador al azar en la cookie bl_sid de .blondor.cl que
+     * comparten el sitio y la agenda y vence tras 30 minutos sin actividad. La agenda anota hasta qué paso llegó.
+     */
+    function visitId() {
+        const match = document.cookie.match(/(?:^|;\s*)bl_sid=([a-z0-9]{16,40})/);
+        let id = match ? match[1] : '';
+
+        if (!id) {
+            const bytes = new Uint8Array(12);
+            crypto.getRandomValues(bytes);
+            id = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        const domain = location.hostname.endsWith('blondor.cl') ? '; Domain=.blondor.cl' : '';
+        const secure = location.protocol === 'https:' ? '; Secure' : '';
+
+        document.cookie = 'bl_sid=' + id + '; Max-Age=1800; Path=/; SameSite=Lax' + domain + secure;
+
+        return id;
+    }
+
+    function track(step) {
+        try {
+            navigator.sendBeacon(
+                AGENDA + '/index.php/funnel/track',
+                JSON.stringify({session: visitId(), step, ref: REF}),
+            );
+        } catch (error) {
+            // Medir nunca debe romper la página.
+        }
+    }
+
+    /**
      * Si la clienta prefiere escribir, el código viaja en el mensaje de WhatsApp para que la operadora lo copie en la
      * cita (Publicador lo busca en las notas). Sin origen el enlace queda igual.
      */
@@ -499,6 +532,7 @@
         update();
     }
 
+    track('site');
     linkBookingButtons();
     loadCatalog();
     setupGiftCards();
