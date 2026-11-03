@@ -442,7 +442,7 @@
 
             other.hidden = selected !== 'other';
             amount.value = value;
-            selectedAmount.textContent = value ? money(value) : 'Otro monto';
+            selectedAmount.textContent = value ? money(value) : 'Personalizado';
             pay.textContent = value ? 'Pagar ' + money(value) + ' con Webpay' : 'Pagar con Webpay';
             error.hidden = true;
             fitHeight();
@@ -534,8 +534,9 @@
     }
 
     /**
-     * Portada: galería de trabajos. assets/galeria/galeria.json lo genera scripts/galeria/ desde la carpeta «imagenes» del
-     * Drive de Publicador. Si no existe o falla, quedan las fotos de respaldo que trae el HTML.
+     * Portada: galería de trabajos. assets/galeria/galeria.json (fotos) lo genera scripts/galeria/ desde la carpeta
+     * «imagenes» del Drive de Publicador; assets/galeria/video/videos.json (videos «antes y después») se arma con
+     * scripts/galeria/video.sh. Los videos van primero. Si no hay fotos, quedan las de respaldo que trae el HTML.
      */
     const WORKS_VISIBLE = 10;
 
@@ -544,15 +545,26 @@
         if (!grid) return;
         const more = document.getElementById('works-more');
 
-        fetch('assets/galeria/galeria.json', {cache: 'no-cache'})
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-                const items = (data && Array.isArray(data.items) ? data.items : []).filter((it) => it && it.src);
-                if (items.length < 4) return;
-                grid.replaceChildren(...items.map(workButton));
+        // Sin movimiento automático para quien pidió menos movimiento o ahorro de datos.
+        const calm =
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+            Boolean(navigator.connection && navigator.connection.saveData);
+
+        const getItems = (url) =>
+            fetch(url, {cache: 'no-cache'})
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data) => (data && Array.isArray(data.items) ? data.items.filter((it) => it && it.src) : []))
+                .catch(() => []);
+
+        Promise.all([getItems('assets/galeria/video/videos.json'), getItems('assets/galeria/galeria.json')]).then(
+            ([videos, photos]) => {
+                if (!videos.length && photos.length < 4) return;
+                const photoButtons = photos.length >= 4 ? photos.map(workButton) : [...grid.children];
+                grid.replaceChildren(...videos.map(videoButton), ...photoButtons);
                 collapse();
-            })
-            .catch(() => {});
+                playWhenVisible();
+            },
+        );
 
         function workButton(it, i) {
             const b = document.createElement('button');
@@ -574,13 +586,71 @@
             img.decoding = 'async';
             if (i >= 4) img.loading = 'lazy';
             b.append(img);
-            if (it.caption) {
-                const cap = document.createElement('span');
-                cap.className = 'work__cap';
-                cap.textContent = it.caption;
-                b.append(cap);
-            }
+            if (it.caption) b.append(caption(it.caption));
             return b;
+        }
+
+        function videoButton(it) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'work work--video';
+            b.dataset.video = it.src;
+            b.dataset.poster = it.poster || '';
+            if (it.caption) b.dataset.caption = it.caption;
+            if (it.service) b.dataset.service = it.service;
+            if (it.serviceName) b.dataset.serviceName = it.serviceName;
+            b.setAttribute('aria-label', `Ver video: ${it.alt || it.caption || 'trabajo de Blondor'}`);
+
+            // Video mudo en loop, como una foto viva. Se carga y reproduce solo mientras está en pantalla.
+            const v = document.createElement('video');
+            v.muted = true;
+            v.loop = true;
+            v.playsInline = true;
+            v.preload = 'none';
+            v.setAttribute('aria-hidden', 'true');
+            if (it.poster) v.poster = it.poster;
+            if (it.w && it.h) {
+                v.width = it.w;
+                v.height = it.h;
+            }
+            if (!calm) v.dataset.src = it.src;
+            b.append(v);
+
+            const badge = document.createElement('span');
+            badge.className = 'work__play';
+            badge.innerHTML =
+                '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>';
+            badge.append(document.createTextNode(it.badge || 'Antes y después'));
+            b.append(badge);
+            // Sin pie en la grilla: el video ya trae sus etiquetas (ANTES, DESPUÉS). El pie se ve en el visor.
+            return b;
+        }
+
+        function caption(text) {
+            const cap = document.createElement('span');
+            cap.className = 'work__cap';
+            cap.textContent = text;
+            return cap;
+        }
+
+        function playWhenVisible() {
+            const videos = [...grid.querySelectorAll('.work--video video[data-src]')];
+            if (!videos.length || !('IntersectionObserver' in window)) return;
+            const io = new IntersectionObserver(
+                (entries) => {
+                    for (const e of entries) {
+                        const v = e.target;
+                        if (e.isIntersecting) {
+                            if (!v.src) v.src = v.dataset.src;
+                            v.play().catch(() => {});
+                        } else {
+                            v.pause();
+                        }
+                    }
+                },
+                {threshold: 0.25},
+            );
+            videos.forEach((v) => io.observe(v));
         }
 
         function collapse() {
@@ -597,8 +667,10 @@
         // Visor ------------------------------------------------------------------
         const lb = document.getElementById('lb');
         const lbImg = document.getElementById('lb-img');
+        const lbVideo = document.getElementById('lb-video');
         const lbCap = document.getElementById('lb-cap');
         const lbCount = document.getElementById('lb-count');
+        const lbBook = document.getElementById('lb-book');
         let current = 0;
 
         const all = () => [...grid.querySelectorAll('.work')];
@@ -607,12 +679,33 @@
             const list = all();
             current = (i + list.length) % list.length;
             const b = list[current];
-            lbImg.src = b.dataset.full;
-            lbImg.alt = b.querySelector('img').alt;
+            const isVideo = Boolean(b.dataset.video);
+
+            lbVideo.pause();
+            lbImg.hidden = isVideo;
+            lbVideo.hidden = !isVideo;
+            lbBook.hidden = !(isVideo && b.dataset.service);
+
+            if (isVideo) {
+                lbImg.removeAttribute('src');
+                lbVideo.poster = b.dataset.poster;
+                lbVideo.src = b.dataset.video;
+                lbVideo.currentTime = 0;
+                lbVideo.play().catch(() => {});
+                if (b.dataset.service) {
+                    lbBook.href = bookUrl(b.dataset.service);
+                    lbBook.textContent = `Reservar ${(b.dataset.serviceName || 'esta hora').toLowerCase()}`;
+                }
+            } else {
+                lbVideo.removeAttribute('src');
+                lbVideo.load();
+                lbImg.src = b.dataset.full;
+                lbImg.alt = b.querySelector('img').alt;
+            }
             lbCap.textContent = b.dataset.caption || '';
             lbCount.textContent = `${current + 1} / ${list.length}`;
             const next = list[(current + 1) % list.length];
-            if (next) new Image().src = next.dataset.full;
+            if (next && next.dataset.full) new Image().src = next.dataset.full;
         }
 
         grid.addEventListener('click', (e) => {
@@ -622,6 +715,7 @@
             lb.showModal();
         });
 
+        lb.addEventListener('close', () => lbVideo.pause());
         document.getElementById('lb-close').addEventListener('click', () => lb.close());
         document.getElementById('lb-prev').addEventListener('click', () => show(current - 1));
         document.getElementById('lb-next').addEventListener('click', () => show(current + 1));
@@ -633,9 +727,10 @@
             if (e.key === 'ArrowRight') show(current + 1);
         });
 
+        // Deslizar para cambiar de foto (no sobre el video: ahí el dedo mueve la barra de tiempo).
         let startX = null;
         lb.addEventListener('pointerdown', (e) => {
-            startX = e.clientX;
+            startX = e.target === lbVideo ? null : e.clientX;
         });
         lb.addEventListener('pointerup', (e) => {
             if (startX === null) return;

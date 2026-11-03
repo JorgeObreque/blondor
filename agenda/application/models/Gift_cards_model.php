@@ -13,7 +13,7 @@ class Gift_cards_model extends EA_Model
     /**
      * Montos sugeridos en el sitio; también se acepta un monto libre entre MIN_AMOUNT y MAX_AMOUNT.
      */
-    const AMOUNTS = [20000, 30000, 50000];
+    const AMOUNTS = [30000, 60000, 120000];
 
     const MIN_AMOUNT = 10000;
 
