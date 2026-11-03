@@ -5,8 +5,10 @@ set -euo pipefail
 
 BASE=/srv/blondor-galeria
 OUT="$BASE/out"
+set -a   # docker run -e VAR solo pasa variables exportadas
 # shellcheck source=/dev/null
 . "$BASE/galeria.env"   # GOOGLE_DRIVE_ROOT_FOLDER_ID, GALERIA_FOLDER_NAME, KEY_FILE, SSH_KEY, DEST_HOST, DEST_DIR
+set +a
 mkdir -p "$OUT"
 
 if [ ! -r "$KEY_FILE" ]; then
@@ -24,13 +26,13 @@ docker run --rm --user "$(id -u):$(id -g)" \
 
 # El cPanel no tiene rsync: se usa tar por ssh. Orden para que el sitio nunca lea un galeria.json que apunte a fotos
 # que aún no llegan o ya se borraron: 1) fotos nuevas, 2) galeria.json, 3) borrar las que ya no están.
-remote() { ssh -i "$SSH_KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$DEST_HOST" "$@"; }
+remote() { ssh -i "$SSH_KEY" -o BatchMode=yes -o LogLevel=ERROR -o StrictHostKeyChecking=accept-new "$DEST_HOST" "$@"; }
 
 there=$(remote "mkdir -p $DEST_DIR && cd $DEST_DIR && ls -1")
 mapfile -t missing < <(cd "$OUT" && ls -1 -- *.webp 2>/dev/null | grep -vxF -f <(printf '%s\n' "$there") || true)
 
 if [ "${#missing[@]}" -gt 0 ]; then
-  tar -C "$OUT" -cf - -- "${missing[@]}" | remote "tar -xf - -C $DEST_DIR"
+  tar -C "$OUT" -cf - -- "${missing[@]}" | remote "tar -xmf - -C $DEST_DIR"
   echo "Subidas ${#missing[@]} fotos."
 fi
 
