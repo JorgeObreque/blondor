@@ -1,0 +1,11 @@
+[Unit]
+Description=Galería de blondor.cl desde el Drive de Publicador
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jorge
+Group=docker
+ExecStart=/srv/blondor-galeria/run.sh
+TimeoutStartSec=15min

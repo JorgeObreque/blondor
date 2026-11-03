@@ -8,9 +8,10 @@
  * ---------------------------------------------------------------------------- */
 
 (function () {
-    // En local el sitio corre en :8087 y la agenda en :8088; en producción, agenda.blondor.cl.
-    const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-    const AGENDA = isLocal ? 'http://localhost:8088' : document.body.dataset.agenda;
+    // En local el sitio corre en :8087 y la agenda en :8088 del mismo equipo (también por IP de la red, para probar
+    // desde el celular); en producción, agenda.blondor.cl.
+    const isLocal = location.port === '8087';
+    const AGENDA = isLocal ? `http://${location.hostname}:8088` : document.body.dataset.agenda;
     const BOOK = AGENDA + '/index.php/booking';
 
     /**
@@ -532,7 +533,120 @@
         update();
     }
 
+    /**
+     * Portada: galería de trabajos. assets/galeria/galeria.json lo genera scripts/galeria/ desde la carpeta «imagenes» del
+     * Drive de Publicador. Si no existe o falla, quedan las fotos de respaldo que trae el HTML.
+     */
+    const WORKS_VISIBLE = 10;
+
+    function setupWorks() {
+        const grid = document.getElementById('works');
+        if (!grid) return;
+        const more = document.getElementById('works-more');
+
+        fetch('assets/galeria/galeria.json', {cache: 'no-cache'})
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                const items = (data && Array.isArray(data.items) ? data.items : []).filter((it) => it && it.src);
+                if (items.length < 4) return;
+                grid.replaceChildren(...items.map(workButton));
+                collapse();
+            })
+            .catch(() => {});
+
+        function workButton(it, i) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'work';
+            b.dataset.full = it.src;
+            if (it.caption) b.dataset.caption = it.caption;
+            const img = document.createElement('img');
+            img.src = it.thumb || it.src;
+            if (it.thumb && it.thumbW && it.w && it.thumbW < it.w) {
+                img.srcset = `${it.thumb} ${it.thumbW}w, ${it.src} ${it.w}w`;
+                img.sizes = '(min-width: 860px) 230px, 50vw';
+            }
+            img.alt = it.alt || it.caption || 'Trabajo de Blondor';
+            if (it.w && it.h) {
+                img.width = it.w;
+                img.height = it.h;
+            }
+            img.decoding = 'async';
+            if (i >= 4) img.loading = 'lazy';
+            b.append(img);
+            if (it.caption) {
+                const cap = document.createElement('span');
+                cap.className = 'work__cap';
+                cap.textContent = it.caption;
+                b.append(cap);
+            }
+            return b;
+        }
+
+        function collapse() {
+            const buttons = [...grid.children];
+            buttons.forEach((b, i) => b.classList.toggle('is-extra', i >= WORKS_VISIBLE));
+            more.hidden = buttons.length <= WORKS_VISIBLE;
+        }
+
+        more.addEventListener('click', () => {
+            grid.classList.add('is-open');
+            more.hidden = true;
+        });
+
+        // Visor ------------------------------------------------------------------
+        const lb = document.getElementById('lb');
+        const lbImg = document.getElementById('lb-img');
+        const lbCap = document.getElementById('lb-cap');
+        const lbCount = document.getElementById('lb-count');
+        let current = 0;
+
+        const all = () => [...grid.querySelectorAll('.work')];
+
+        function show(i) {
+            const list = all();
+            current = (i + list.length) % list.length;
+            const b = list[current];
+            lbImg.src = b.dataset.full;
+            lbImg.alt = b.querySelector('img').alt;
+            lbCap.textContent = b.dataset.caption || '';
+            lbCount.textContent = `${current + 1} / ${list.length}`;
+            const next = list[(current + 1) % list.length];
+            if (next) new Image().src = next.dataset.full;
+        }
+
+        grid.addEventListener('click', (e) => {
+            const b = e.target.closest('.work');
+            if (!b || typeof lb.showModal !== 'function') return;
+            show(all().indexOf(b));
+            lb.showModal();
+        });
+
+        document.getElementById('lb-close').addEventListener('click', () => lb.close());
+        document.getElementById('lb-prev').addEventListener('click', () => show(current - 1));
+        document.getElementById('lb-next').addEventListener('click', () => show(current + 1));
+        lb.addEventListener('click', (e) => {
+            if (e.target === lb) lb.close();
+        });
+        lb.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') show(current - 1);
+            if (e.key === 'ArrowRight') show(current + 1);
+        });
+
+        let startX = null;
+        lb.addEventListener('pointerdown', (e) => {
+            startX = e.clientX;
+        });
+        lb.addEventListener('pointerup', (e) => {
+            if (startX === null) return;
+            const dx = e.clientX - startX;
+            startX = null;
+            if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+        });
+    }
+
     track('site');
+    setupWorks();
     linkBookingButtons();
     loadCatalog();
     setupGiftCards();

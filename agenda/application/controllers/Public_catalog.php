@@ -33,7 +33,10 @@ class Public_catalog extends EA_Controller
         try {
             $origin = $this->input->get_request_header('Origin') ?? '';
 
-            if (in_array($origin, self::ALLOWED_ORIGINS, true)) {
+            // El sitio local también se abre por la IP de la red para probar desde el celular.
+            $local = preg_match('#^http://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}):8087$#', $origin);
+
+            if ($local || in_array($origin, self::ALLOWED_ORIGINS, true)) {
                 header('Access-Control-Allow-Origin: ' . $origin);
                 header('Vary: Origin');
             }

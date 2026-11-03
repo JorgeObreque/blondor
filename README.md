@@ -24,6 +24,10 @@ docker compose up -d --build
 | Correos enviados (Mailpit) | http://localhost:8025 |
 | MariaDB | `localhost:3307`, usuario/clave `agenda`/`agenda`, BD `agenda` |
 
+Para probar desde el celular u otro equipo de la casa: en PowerShell como administrador ejecuta
+`scripts/dev_lan.ps1` (deja el sitio en `http://<IP del PC>:8087` y la agenda en `:8088`; `-Off` lo cierra).
+Si se reinicia WSL, su IP cambia y hay que volver a ejecutarlo.
+
 Los correos nunca salen a clientes reales: PHP los entrega a Mailpit (también los del formulario del sitio).
 Webhooks y sincronización de calendarios se desactivan al importar (`docker/db/init/02_local.sql`).
 
@@ -82,6 +86,27 @@ solo se confirma cuando el servidor validó la autorización.
 - Mantenimiento (pagos a medio camino, reservas vencidas y avisos): `php index.php console payments` (cron cada
   5 minutos).
 - Pruebas locales: `scripts/run_payments_tests.sh` (base aislada; Webpay, correo, calendarios y webhooks simulados).
+
+## Galería de trabajos (portada de blondor.cl)
+
+La portada de blondor.cl es la galería. Las fotos salen de la subcarpeta **«imagenes»** de `blondor_api`, la
+carpeta de Drive de Publicador (`GOOGLE_DRIVE_ROOT_FOLDER_ID`, cuenta `publicador-drive-reader`): lo que se pone
+ahí aparece en el sitio en menos de una hora, y lo que se saca desaparece. Los videos (`videos`) todavía no.
+
+- Orden: los archivos que empiezan con número («01 Balayage miel.jpg») van primero y en ese orden; el resto, de la
+  más nueva a la más antigua. El nombre sin número ni extensión es el pie de foto; los nombres de cámara
+  (`IMG_1234`, `PXL_…`, `WhatsApp Image…`) quedan sin pie. Se publican hasta 40; la portada muestra 10 y
+  «Ver más trabajos» muestra las demás.
+- `scripts/galeria/` corre en jorgesv (`blondor-galeria.timer`, cada hora): baja las fotos con la llave de
+  Publicador (`/srv/publicador/secrets/google-drive-service-account.json`), las deja en webp de 1200 y 600 px sin
+  EXIF y las sube por ssh a `~/blondor/site/assets/galeria/` del cPanel junto con `galeria.json`
+  (no versionado).
+- Instalar o actualizar: `scripts/galeria/install_jorgesv.sh`. La primera vez imprime una llave pública que hay
+  que agregar a `~/.ssh/authorized_keys` del cPanel. Ejecutar a mano: `ssh jorgesv sudo systemctl start
+  blondor-galeria.service`; registro: `ssh jorgesv journalctl -u blondor-galeria`.
+- Si falla Drive, se mantiene el último `galeria.json` bueno. Si no existe o tiene menos de 4 fotos, el sitio
+  muestra las 4 de respaldo que vienen en `site/index.html`.
+- Pruebas (Drive simulado): `cd scripts/galeria && npm install && npm test`.
 
 ## Notas
 

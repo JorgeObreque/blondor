@@ -21,3 +21,6 @@ agenda/storage/uploads/visits/*
 
 # Log de errores de PHP que genera el hosting
 agenda/error_log
+
+# Galería de la portada: la genera scripts/galeria/ en jorgesv (no se versiona)
+site/assets/galeria/

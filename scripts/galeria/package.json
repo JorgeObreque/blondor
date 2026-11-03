@@ -1,0 +1,14 @@
+{
+  "name": "blondor-galeria",
+  "private": true,
+  "type": "module",
+  "description": "Sincroniza la carpeta «imagenes» del Drive de Publicador con site/assets/galeria/ de blondor.cl",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "test": "node --experimental-test-module-mocks --test sync.test.mjs"
+  },
+  "dependencies": {
+    "google-auth-library": "9.15.1",
+    "sharp": "0.33.5"
+  }
+}
