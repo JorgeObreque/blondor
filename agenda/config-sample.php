@@ -61,4 +61,13 @@ class Config
     const WEBPAY_ENVIRONMENT = '';
     const WEBPAY_COMMERCE_CODE = '';
     const WEBPAY_API_KEY = '';
+
+    // ------------------------------------------------------------------------
+    // BLONDOR - PUBLICADOR (entrar con la sesión de la agenda)
+    // ------------------------------------------------------------------------
+    // PUBLICADOR_SSO_SECRET debe ser igual a PUBLICADOR_SSO_SECRET del .env del Publicador (mínimo 32
+    // caracteres, p. ej. `openssl rand -hex 32`). Si queda vacía, el menú "Publicador" responde 503.
+
+    const PUBLICADOR_URL = 'https://publicador.blondor.cl';
+    const PUBLICADOR_SSO_SECRET = '';
 }
