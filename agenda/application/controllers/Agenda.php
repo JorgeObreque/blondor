@@ -824,6 +824,10 @@ class Agenda extends EA_Controller
 
     private function require_permission(string $action, string $resource = PRIV_APPOINTMENTS): void
     {
+        if (!session('user_id')) {
+            abort(401, 'La sesión expiró. Vuelve a iniciar sesión.');
+        }
+
         if (cannot($action, $resource)) {
             abort(403, 'Forbidden');
         }

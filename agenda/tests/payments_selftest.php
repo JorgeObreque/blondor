@@ -76,6 +76,7 @@ class Payments_selftest
 
         $tests = [
             'test_policy_limits',
+            'test_public_booking_requires_thirty_minutes',
             'test_prepare_holds_the_slot',
             'test_prepare_rejects_archived_and_free_services',
             'test_checkout_ignores_the_amount_of_the_browser',
@@ -651,6 +652,37 @@ class Payments_selftest
 
         // El modo completo no existe cuando el precio no es exacto.
         $this->equals(null, $policy->amount($options, 'full'), 'No se puede pagar el total si no se conoce');
+    }
+
+    protected function test_public_booking_requires_thirty_minutes(): void
+    {
+        $original = setting('book_advance_timeout');
+        try {
+            setting(['book_advance_timeout' => 0]);
+            $now = time();
+            $threshold = $this->CI->availability->earliest_public_booking_time()->getTimestamp();
+            $this->ok($threshold >= $now + 1800 && $threshold <= time() + 1800, 'Margen mínimo de 30 minutos');
+            $filter = new ReflectionMethod(Availability::class, 'consider_book_advance_timeout');
+            $filter->setAccessible(true);
+            $provider = ['timezone' => date_default_timezone_get()];
+            foreach ([29 => false, 31 => true] as $minutes => $expected) {
+                $start = date('Y-m-d H:i:s', time() + $minutes * 60);
+                $hours = $filter->invoke($this->CI->availability, substr($start, 0, 10), [substr($start, 11, 5)], $provider);
+                $this->equals($expected, !empty($hours), 'Filtro público: ' . $minutes . ' minutos');
+            }
+            $start = date('Y-m-d H:i:s', time() + 29 * 60);
+            $failed = false;
+            try {
+                $this->prepare('exact', 'too_soon', [$start, date('Y-m-d H:i:s', time() + 89 * 60)]);
+            } catch (InvalidArgumentException $e) {
+                $failed = str_contains($e->getMessage(), '30 minutos');
+            }
+            $this->ok($failed, 'El servidor rechaza reservar dentro de los próximos 30 minutos');
+            setting(['book_advance_timeout' => 60]);
+            $this->ok($this->CI->availability->earliest_public_booking_time()->getTimestamp() >= time() + 3599, 'Conserva márgenes configurados mayores');
+        } finally {
+            setting(['book_advance_timeout' => $original]);
+        }
     }
 
     protected function test_prepare_holds_the_slot(): void

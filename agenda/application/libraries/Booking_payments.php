@@ -158,6 +158,10 @@ class Booking_payments
             throw new RuntimeException('Esta reserva venció. Vuelve a elegir la hora para crear otra reserva.');
         }
 
+        if (new DateTime($plan['start_datetime']) < $this->CI->availability->earliest_public_booking_time()) {
+            throw new InvalidArgumentException('Elige una hora con al menos 30 minutos de anticipación.');
+        }
+
         $this->check_quota($context);
 
         $date = substr($plan['start_datetime'], 0, 10);

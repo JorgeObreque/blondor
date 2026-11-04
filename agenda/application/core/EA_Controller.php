@@ -100,11 +100,20 @@ class EA_Controller extends CI_Controller
             return;
         }
 
+        $last_activity = (int) session('backoffice_last_activity');
+        $expiration = (int) config('sess_expiration');
+        if ($last_activity > 0 && $expiration > 0 && time() - $last_activity >= $expiration) {
+            $this->session->sess_destroy();
+            $_SESSION = [];
+            return;
+        }
+
         if (!$this->accounts->does_account_exist($user_id)) {
             session_destroy();
 
             abort(403, 'Forbidden');
         }
+        session(['backoffice_last_activity' => time()]);
     }
 
     /**

@@ -29,6 +29,7 @@ App.Http.Agenda = (function () {
             })
                 .done(resolve)
                 .fail((jqXHR, textStatus) => {
+                    App.Utils.BackofficeSession?.handleResponse(jqXHR);
                     let message = 'No hay conexión con el servidor.';
 
                     if (textStatus === 'timeout') {

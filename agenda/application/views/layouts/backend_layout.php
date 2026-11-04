@@ -73,6 +73,8 @@
 <?php component('js_vars_script'); ?>
 <?php component('js_lang_script'); ?>
 
+<script src="<?= asset_url('assets/js/utils/backoffice_session.js') ?>"></script>
+
 <?php slot('scripts'); ?>
 
 </body>

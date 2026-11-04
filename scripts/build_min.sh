@@ -6,6 +6,7 @@ cd "$(dirname "$0")/../agenda"
 
 for src in \
   assets/js/pages/agenda.js \
+  assets/js/utils/backoffice_session.js \
   assets/js/pages/backoffice_notifications.js \
   assets/js/http/agenda_http_client.js \
   assets/css/pages/agenda.css \

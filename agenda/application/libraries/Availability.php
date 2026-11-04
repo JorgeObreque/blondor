@@ -616,6 +616,13 @@ class Availability
         return $available_hours;
     }
 
+    /** Public bookings always require at least 30 minutes of notice. */
+    public function earliest_public_booking_time(?DateTimeZone $timezone = null): DateTime
+    {
+        $minutes = max(30, (int) setting('book_advance_timeout'));
+        return new DateTime('+' . $minutes . ' minutes', $timezone);
+    }
+
     /**
      * Consider the book advance timeout and remove available hours that have passed the threshold.
      *
@@ -635,14 +642,12 @@ class Availability
     {
         $provider_timezone = new DateTimeZone($provider['timezone']);
 
-        $book_advance_timeout = setting('book_advance_timeout');
-
-        $threshold = new DateTime('+' . $book_advance_timeout . ' minutes', $provider_timezone);
+        $threshold = $this->earliest_public_booking_time($provider_timezone);
 
         foreach ($available_hours as $index => $value) {
             $available_hour = new DateTime($date . ' ' . $value, $provider_timezone);
 
-            if ($available_hour->getTimestamp() <= $threshold->getTimestamp()) {
+            if ($available_hour->getTimestamp() < $threshold->getTimestamp()) {
                 unset($available_hours[$index]);
             }
         }
