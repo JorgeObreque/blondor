@@ -21,8 +21,8 @@
 
     <title><?= e(vars('page_title') ?: 'Reserva tu hora') ?> | <?= e(vars('company_name') ?: 'Blondor') ?></title>
 
-    <link rel="icon" type="image/x-icon" href="<?= asset_url('assets/img/favicon.ico') ?>">
-    <link rel="icon" sizes="192x192" href="<?= asset_url('assets/img/logo.png') ?>">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= asset_url('assets/img/pwa/blondor-32.png') ?>">
+    <link rel="icon" type="image/png" sizes="192x192" href="<?= asset_url('assets/img/pwa/blondor-192.png') ?>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
