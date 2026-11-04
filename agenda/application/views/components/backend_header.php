@@ -66,6 +66,16 @@
                 </a>
             </li>
 
+            <?php /* Blondor: Publicador (campañas y recordatorios) vive en otro servidor con su propia clave. */ ?>
+            <?php $hidden = can('view', PRIV_SYSTEM_SETTINGS) ? '' : 'd-none'; ?>
+            <li class="nav-item <?= $hidden ?>">
+                <a href="https://publicador.blondor.cl" class="nav-link" target="_blank" rel="noopener">
+                    <i class="fas fa-bullhorn me-2"></i>
+                    Publicador
+                    <i class="fas fa-external-link-alt ms-1 small"></i>
+                </a>
+            </li>
+
             <?php $hidden = can('view', PRIV_APPOINTMENTS) ? '' : 'd-none'; ?>
             <?php $active = $active_menu == PRIV_APPOINTMENTS ? 'active' : ''; ?>
             <li class="nav-item <?= $active . $hidden ?>">
