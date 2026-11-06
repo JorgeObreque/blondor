@@ -68,6 +68,38 @@ Reemplaza una evaluación anterior que no quedó guardada.
 - Se deja fuera de EA lo que no se usa: LDAP, Matomo, CalDAV, secretarias, instalador, actualizador.
 - **Esfuerzo:** ~4–6 meses a medio tiempo. **Riesgo:** medio, sobre todo en la disponibilidad y en la migración de datos.
 
+### Alta automática de salones (sirve para A y para C)
+
+Un formulario público donde la dueña crea su salón sola, sin intervención manual.
+
+**Script de alta (`nuevo-salon.sh --slug pelu-maria --nombre "..." --email ...`):**
+1. crea la BD del salón con su usuario y aplica todas las migraciones
+2. genera su `config.php` (URL `pelu-maria.tudominio.cl`, BD, claves; Webpay vacío hasta que el salón entregue las suyas)
+3. guarda en sus ajustes el nombre, el logo y los colores (requiere sacar «Blondor» del código)
+4. crea la cuenta de la dueña como administradora y servicios de ejemplo
+5. publica el salón: contenedor o carpeta y ruta en el túnel de Cloudflare
+6. activa recordatorios, push y respaldo diario de su BD
+7. manda el correo de bienvenida
+
+Las actualizaciones van con un segundo script (`actualizar-salones.sh`): un solo código y migraciones aplicadas a todas las BD.
+
+**Flujo que ve la dueña:**
+1. formulario en `tudominio.cl/crear`: nombre del salón, dirección (`pelu-maria`), correo, clave, logo y colores
+2. validación de la dirección y verificación del correo (evita salones falsos y bots)
+3. la web **no** ejecuta el script: deja un pedido en una cola (tabla `provisioning_jobs`)
+4. un proceso aparte en el servidor toma el pedido, ejecuta el script y guarda el avance paso a paso. Es el único con permiso para crear BD y contenedores
+5. pantalla «Preparando tu agenda…» con el avance
+6. entra directo a su agenda con la sesión iniciada y recibe el correo de bienvenida
+
+**Lo que hay que cuidar:**
+- formulario y script separados por la cola: una falla en la web no da acceso a comandos del servidor
+- DNS comodín `*.tudominio.cl` + certificado comodín en Cloudflare: cada salón funciona al instante, sin crear DNS ni certificado por salón
+- si el script falla a mitad de camino, debe deshacer lo creado o poder retomarse (sin salones a medio crear)
+- prueba gratis (por ejemplo 14 días) y luego suscripción con Mercado Pago o Flow; si no paga, el salón queda congelado, no borrado
+- panel interno con la lista de salones y su estado (creando, activo, en prueba, suspendido) y opción de reintentar
+
+En C se mantienen el formulario, la verificación y el cobro. Lo único que cambia es que el proceso del servidor inserta un registro de salón en vez de crear una BD nueva.
+
 ## 4. Recomendación
 
 1. **No hacer B.**
