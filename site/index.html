@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Manrope:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="assets/css/site.css?v=7">
+    <link rel="stylesheet" href="assets/css/site.css?v=8">
 
     <script type="application/ld+json">
     {
@@ -83,13 +83,25 @@
                 <div class="hero__facts"><span>Reserva online en 1 minuto</span><span>L'Oréal · Wella · Farmavita</span><span>Precios a la vista</span></div>
             </div>
 
-            <div class="works" id="works">
-                <button type="button" class="work" data-full="assets/img/hero.webp" data-w="640" data-h="729"><img src="assets/img/hero.webp" alt="Pelo largo castaño con ondas suaves" width="640" height="729" fetchpriority="high"></button>
-                <button type="button" class="work" data-full="assets/img/mechas.webp" data-w="310" data-h="460" data-caption="Babylights"><img src="assets/img/mechas.webp" alt="Pelo largo con babylights rubias" width="310" height="460"></button>
-                <button type="button" class="work" data-full="assets/img/color.webp" data-w="900" data-h="600" data-caption="Mechas con papel"><img src="assets/img/color.webp" alt="Mechas con papel en pelo corto castaño" width="900" height="600" loading="lazy"></button>
-                <button type="button" class="work" data-full="assets/img/brushing.webp" data-w="900" data-h="525" data-caption="Brushing"><img src="assets/img/brushing.webp" alt="Estilista haciendo brushing con cepillo redondo" width="900" height="525" loading="lazy"></button>
+            <div class="works-box">
+                <div class="works-head">
+                    <h2 class="works__title">Trabajos del salón <span class="works__count" id="works-count" aria-live="polite"></span></h2>
+                    <div class="works__nav">
+                        <button type="button" class="works__arrow" id="works-prev" aria-label="Trabajos anteriores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
+                        <button type="button" class="works__arrow works__arrow--next" id="works-next" aria-label="Más trabajos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></button>
+                    </div>
+                </div>
+                <div class="works" id="works" role="region" aria-label="Trabajos del salón, desliza para ver más" tabindex="0">
+                    <button type="button" class="work" data-full="assets/img/hero.webp" data-w="640" data-h="729"><img src="assets/img/hero.webp" alt="Pelo largo castaño con ondas suaves" width="640" height="729" fetchpriority="high"></button>
+                    <button type="button" class="work" data-full="assets/img/mechas.webp" data-w="310" data-h="460" data-caption="Babylights"><img src="assets/img/mechas.webp" alt="Pelo largo con babylights rubias" width="310" height="460"></button>
+                    <button type="button" class="work" data-full="assets/img/color.webp" data-w="900" data-h="600" data-caption="Mechas con papel"><img src="assets/img/color.webp" alt="Mechas con papel en pelo corto castaño" width="900" height="600" loading="lazy"></button>
+                    <button type="button" class="work" data-full="assets/img/brushing.webp" data-w="900" data-h="525" data-caption="Brushing"><img src="assets/img/brushing.webp" alt="Estilista haciendo brushing con cepillo redondo" width="900" height="525" loading="lazy"></button>
+                </div>
+                <div class="works-foot">
+                    <span class="works__bar" aria-hidden="true"><span id="works-bar"></span></span>
+                    <button type="button" class="works__all" id="works-more">Ver todos</button>
+                </div>
             </div>
-            <button type="button" class="btn btn--outline works__more" id="works-more" hidden>Ver más trabajos</button>
         </div>
     </section>
 
@@ -273,6 +285,6 @@
     </a>
 </div>
 
-<script src="assets/js/site.js?v=12" defer></script>
+<script src="assets/js/site.js?v=13" defer></script>
 </body>
 </html>

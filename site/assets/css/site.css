@@ -403,43 +403,116 @@ p {
 
 /* Galería de trabajos (portada) ------------------------------------------------------ */
 
+.works-box {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.works-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.works__title {
+  margin: 0;
+  font: 800 15px/1.2 var(--font-body);
+  color: var(--on-blue);
+}
+
+.works__count {
+  margin-left: 6px;
+  font-weight: 700;
+  color: var(--on-blue-muted);
+}
+
+/* Las flechas solo en escritorio: en el celular se desliza con el dedo. */
+.works__nav {
+  display: none;
+  gap: 10px;
+}
+
+.works__arrow {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--on-blue);
+  cursor: pointer;
+}
+
+.works__arrow--next {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: var(--blue-deep);
+}
+
+.works__arrow svg {
+  width: 20px;
+  height: 20px;
+}
+
+.works__arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Carrusel: una fila que se desliza y se detiene en cada trabajo; en el celular ocupa todo el ancho y se asoma
+   el siguiente para que se note que hay más. */
 .works {
-  columns: 2;
-  column-gap: 10px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: max(16px, env(safe-area-inset-left, 0px));
+  margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  padding: 0 max(16px, env(safe-area-inset-left, 0px)) 2px;
+  scrollbar-width: none;
+}
+
+.works::-webkit-scrollbar {
+  display: none;
+}
+
+.works:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 4px;
 }
 
 .work {
+  flex: 0 0 min(272px, 72vw);
+  aspect-ratio: 7 / 10;
   display: block;
-  width: 100%;
-  margin: 0 0 10px;
   padding: 0;
   border: 0;
   border-radius: 16px;
   overflow: hidden;
   background: var(--blue-deep);
   cursor: zoom-in;
-  break-inside: avoid;
+  scroll-snap-align: start;
   position: relative;
 }
 
-.work img {
+.work img,
+.work video {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
+  background: var(--blue-deep);
   transition: transform 0.4s ease;
 }
 
 .work:hover img {
   transform: scale(1.03);
-}
-
-.work video {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 9 / 16;
-  object-fit: cover;
-  background: var(--blue-deep);
 }
 
 .work__play {
@@ -469,30 +542,57 @@ p {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 22px 10px 8px;
-  font-size: 13px;
+  padding: 28px 12px 10px;
+  font-size: 14px;
   font-weight: 700;
   text-align: left;
   color: #ffffff;
-  background: linear-gradient(transparent, rgba(4, 22, 40, 0.75));
+  background: linear-gradient(transparent, rgba(4, 22, 40, 0.78));
 }
 
-.work.is-extra {
-  display: none;
+.works-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.works.is-open .work.is-extra {
+.works__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.works__bar span {
   display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: #ffffff;
+  transition: width 0.2s ease;
 }
 
-.works__more {
-  justify-self: center;
-  min-width: 220px;
+.works__all {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--on-blue);
+  font: 800 14px/1 var(--font-body);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .work img {
+  .work img,
+  .works__bar span {
     transition: none;
+  }
+
+  .works {
+    scroll-behavior: auto;
   }
 }
 
@@ -1355,17 +1455,27 @@ p {
     flex: 0 0 auto;
   }
 
+  .works__nav {
+    display: flex;
+  }
+
+  /* En escritorio se ven tres trabajos a la vez, dentro de la columna, y se avanza con las flechas. */
   .works {
-    columns: 3;
-    column-gap: 14px;
+    gap: 14px;
+    margin-inline: 0;
+    padding: 0;
+    scroll-padding-inline: 0;
+    scroll-behavior: smooth;
+    border-radius: 16px;
   }
 
   .work {
-    margin-bottom: 14px;
+    flex-basis: calc((100% - 28px) / 3);
+    aspect-ratio: 3 / 5;
   }
 
-  .works__more {
-    grid-column: 2;
+  .works__title {
+    font-size: 16px;
   }
 
   .promo {

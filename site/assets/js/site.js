@@ -537,8 +537,8 @@
      * Portada: galería de trabajos. assets/galeria/galeria.json (fotos) lo genera scripts/galeria/ desde la carpeta
      * «imagenes» del Drive de Publicador; assets/galeria/video/videos.json (videos «antes y después») se arma con
      * scripts/galeria/video.sh. Los videos van primero. Si no hay fotos, quedan las de respaldo que trae el HTML.
+     * Se muestran en un carrusel: en el celular se desliza con el dedo; en escritorio, con las flechas.
      */
-    const WORKS_VISIBLE = 10;
 
     function setupWorks() {
         const grid = document.getElementById('works');
@@ -561,7 +561,8 @@
                 if (!videos.length && photos.length < 4) return;
                 const photoButtons = photos.length >= 4 ? photos.map(workButton) : [...grid.children];
                 grid.replaceChildren(...videos.map(videoButton), ...photoButtons);
-                collapse();
+                grid.scrollLeft = 0;
+                updateCarousel();
                 playWhenVisible();
             },
         );
@@ -576,7 +577,7 @@
             img.src = it.thumb || it.src;
             if (it.thumb && it.thumbW && it.w && it.thumbW < it.w) {
                 img.srcset = `${it.thumb} ${it.thumbW}w, ${it.src} ${it.w}w`;
-                img.sizes = '(min-width: 860px) 230px, 50vw';
+                img.sizes = '(min-width: 860px) 220px, 272px';
             }
             img.alt = it.alt || it.caption || 'Trabajo de Blondor';
             if (it.w && it.h) {
@@ -653,16 +654,47 @@
             videos.forEach((v) => io.observe(v));
         }
 
-        function collapse() {
-            const buttons = [...grid.children];
-            buttons.forEach((b, i) => b.classList.toggle('is-extra', i >= WORKS_VISIBLE));
-            more.hidden = buttons.length <= WORKS_VISIBLE;
+        // Carrusel ---------------------------------------------------------------
+        const count = document.getElementById('works-count');
+        const bar = document.getElementById('works-bar');
+        const prev = document.getElementById('works-prev');
+        const next = document.getElementById('works-next');
+
+        // Ancho de un paso: una tarjeta más el espacio entre tarjetas.
+        function step() {
+            const first = grid.querySelector('.work');
+            if (!first) return grid.clientWidth;
+            return first.getBoundingClientRect().width + (parseFloat(getComputedStyle(grid).columnGap) || 0);
         }
 
-        more.addEventListener('click', () => {
-            grid.classList.add('is-open');
-            more.hidden = true;
-        });
+        function updateCarousel() {
+            const total = grid.querySelectorAll('.work').length;
+            const max = grid.scrollWidth - grid.clientWidth;
+            const atEnd = grid.scrollLeft >= max - 4;
+            const index = atEnd ? total - 1 : Math.min(total - 1, Math.round(grid.scrollLeft / step()));
+            count.textContent = total ? `${index + 1} / ${total}` : '';
+            bar.style.width = `${total ? ((index + 1) / total) * 100 : 0}%`;
+            prev.disabled = grid.scrollLeft <= 4;
+            next.disabled = atEnd;
+        }
+
+        let ticking = false;
+        grid.addEventListener(
+            'scroll',
+            () => {
+                if (ticking) return;
+                ticking = true;
+                requestAnimationFrame(() => {
+                    ticking = false;
+                    updateCarousel();
+                });
+            },
+            {passive: true},
+        );
+        window.addEventListener('resize', updateCarousel);
+        prev.addEventListener('click', () => grid.scrollBy({left: -step(), behavior: calm ? 'auto' : 'smooth'}));
+        next.addEventListener('click', () => grid.scrollBy({left: step(), behavior: calm ? 'auto' : 'smooth'}));
+        updateCarousel();
 
         // Visor ------------------------------------------------------------------
         const lb = document.getElementById('lb');
@@ -712,6 +744,12 @@
             const b = e.target.closest('.work');
             if (!b || typeof lb.showModal !== 'function') return;
             show(all().indexOf(b));
+            lb.showModal();
+        });
+
+        more.addEventListener('click', () => {
+            if (typeof lb.showModal !== 'function') return;
+            show(0);
             lb.showModal();
         });
 
