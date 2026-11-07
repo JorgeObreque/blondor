@@ -6,6 +6,12 @@ class Staff_push
     protected $CI;
     protected $transport = null;
 
+    const RECORD_DELAY_HOURS = 4;
+    const RECORD_MIN_GAP_MINUTES = 55;
+    const RECORD_FIRST_HOUR = 9;
+    const RECORD_LAST_HOUR = 21;
+    const RECORD_GIVE_UP_DAYS = 3;
+
     public function __construct()
     {
         $this->CI = &get_instance();
@@ -178,6 +184,68 @@ class Staff_push
         }
     }
 
+    /** Cuentas que reciben el aviso de ficha pendiente (setting record_reminder_user_ids). */
+    public function record_reminder_users(): array
+    {
+        $ids = array_map('intval', array_filter(array_map('trim', explode(',', (string) setting('record_reminder_user_ids', '')))));
+        return array_values(array_unique(array_filter($ids, fn($id) => $id > 0)));
+    }
+
+    /**
+     * Ficha pendiente: si una visita terminó hace 4 horas o más y su ficha sigue vacía, avisa cada hora entre las
+     * 9:00 y las 21:00, durante los 3 días siguientes a la cita. Corre con el cron cada 5 minutos; repetirlo no
+     * duplica avisos (una entrega por dispositivo y por hora, y al menos 55 minutos entre una y otra).
+     */
+    public function enqueue_record_reminders(?DateTimeImmutable $now = null): int
+    {
+        $db = $this->CI->db;
+        $started = (string) setting('record_reminders_started', '');
+        $users = $this->record_reminder_users();
+        if (!$this->tables_ready() || !$db->table_exists('visit_records') || $started === '' || !$users) { return 0; }
+
+        $timezone = new DateTimeZone((string) setting('default_timezone', 'America/Santiago') ?: 'America/Santiago');
+        $now = ($now ?? new DateTimeImmutable('now', $timezone))->setTimezone($timezone);
+        $hour = (int) $now->format('G');
+        if ($hour < self::RECORD_FIRST_HOUR || $hour >= self::RECORD_LAST_HOUR) { return 0; }
+
+        $subscriptions = $db->where('enabled', 1)->where_in('id_users', $users)->get('push_subscriptions')->result_array();
+        if (!$subscriptions) { return 0; }
+
+        $stamp = $now->format('Y-m-d H:i:s');
+        $oldest = max($now->modify('-' . self::RECORD_GIVE_UP_DAYS . ' days')->format('Y-m-d H:i:s'), $started);
+        $appointments = $db->select('a.id, a.id_users_provider')
+            ->from('appointments a')
+            ->join('visit_records vr', 'vr.id_appointments = a.id', 'left')
+            ->where('vr.id IS NULL', null, false)
+            ->where('a.is_unavailability', 0)
+            ->where('a.id_users_customer IS NOT NULL', null, false)
+            ->where('a.end_datetime <=', $now->modify('-' . self::RECORD_DELAY_HOURS . ' hours')->format('Y-m-d H:i:s'))
+            ->where('a.end_datetime >=', $oldest)
+            ->group_start()->where_not_in('a.status', ['Cancelado', 'No vino', 'Reagendado'])->or_where('a.status IS NULL', null, false)->group_end()
+            ->group_start()->where_not_in('a.payment_status', ['attention', 'cancelled'])->or_where('a.payment_status IS NULL', null, false)->group_end()
+            ->order_by('a.end_datetime')
+            ->get()->result_array();
+
+        $queued = 0;
+        $spacing = $now->modify('-' . self::RECORD_MIN_GAP_MINUTES . ' minutes')->format('Y-m-d H:i:s');
+        foreach ($appointments as $appointment) {
+            foreach ($subscriptions as $subscription) {
+                if (!$this->eligible_user((int) $subscription['id_users'], (int) $appointment['id_users_provider'])) { continue; }
+                $recent = $db->where('id_subscription', $subscription['id'])->where('id_appointments', $appointment['id'])
+                    ->where('event_type', 'record')->where('create_datetime >', $spacing)->count_all_results('push_deliveries');
+                if ($recent) { continue; }
+                $db->query('INSERT IGNORE INTO `' . $db->dbprefix('push_deliveries') . '`' .
+                    ' (id_subscription,id_users,id_appointments,event_key,event_type,status,attempts,available_at,create_datetime,update_datetime)' .
+                    ' VALUES (?,?,?,?,\'record\',\'pending\',0,?,?,?)', [
+                        $subscription['id'], $subscription['id_users'], $appointment['id'],
+                        'record-' . $appointment['id'] . '-' . $now->format('YmdH'), $stamp, $stamp, $stamp,
+                    ]);
+                $queued += $db->affected_rows() > 0 ? 1 : 0;
+            }
+        }
+        return $queued;
+    }
+
     public function set_transport(?callable $transport): void { $this->transport = $transport; }
 
     protected function vapid_subject(): string
@@ -186,14 +254,14 @@ class Staff_push
         return filter_var($email, FILTER_VALIDATE_EMAIL) ? 'mailto:' . $email : base_url('', 'https');
     }
 
-    protected function appointment_url(int $appointment_id): string
+    protected function appointment_url(int $appointment_id, bool $record = false): string
     {
         $host = strtolower((string) parse_url(base_url(), PHP_URL_HOST));
         $protocol = in_array($host, ['localhost', '127.0.0.1', '::1'], true) ? null : 'https';
-        return site_url('backoffice_push/open/' . $appointment_id, $protocol);
+        return site_url('backoffice_push/open/' . $appointment_id, $protocol) . ($record ? '?ficha=1' : '');
     }
 
-    protected function send(array $subscription, array $payload): array
+    protected function send(array $subscription, array $payload, int $ttl = 86400): array
     {
         if ($this->transport) { return ($this->transport)($subscription, $payload); }
         if (str_starts_with($this->CI->db->database, 'agenda_payments_test_')) {
@@ -206,13 +274,21 @@ class Staff_push
         try {
         $sender = new Minishlink\WebPush\WebPush(['VAPID' => [
             'subject' => $this->vapid_subject(), 'publicKey' => $keys['publicKey'], 'privateKey' => $keys['privateKey'],
-        ]], ['TTL' => 86400, 'urgency' => 'normal'], 8, ['allow_redirects' => false, 'connect_timeout' => 4]);
+        ]], ['TTL' => $ttl, 'urgency' => 'normal'], 8, ['allow_redirects' => false, 'connect_timeout' => 4]);
         } finally { error_reporting($reporting); }
         $target = Minishlink\WebPush\Subscription::create(['endpoint' => $subscription['endpoint'], 'contentEncoding' => 'aes128gcm', 'keys' => [
             'p256dh' => $subscription['public_key'], 'auth' => $subscription['auth_token'],
         ]]);
         $report = $sender->sendOneNotification($target, json_encode($payload, JSON_UNESCAPED_UNICODE));
         return ['success' => $report->isSuccess(), 'expired' => $report->isSubscriptionExpired()];
+    }
+
+    /** Un aviso de ficha ya no sirve si la ficha existe, la visita se anuló o lleva más de una hora sin salir. */
+    protected function record_reminder_stale(array $job, array $appointment): bool
+    {
+        return in_array($appointment['status'] ?? '', ['No vino', 'Reagendado'], true)
+            || time() - strtotime($job['available_at']) > 3600
+            || $this->CI->db->where('id_appointments', $appointment['id'])->count_all_results('visit_records') > 0;
     }
 
     public function dispatch(int $limit = 20): int
@@ -231,18 +307,29 @@ class Staff_push
             $appointment = $db->get_where('appointments', ['id' => $job['id_appointments']])->row_array();
             $discard = !$subscription || !$appointment || !$this->eligible_user((int) $job['id_users'], (int) ($appointment['id_users_provider'] ?? 0))
                 || (time() - strtotime($job['create_datetime']) > 86400)
-                || (($appointment['status'] ?? '') === 'Cancelado' && $job['event_type'] !== 'cancelled');
+                || (($appointment['status'] ?? '') === 'Cancelado' && $job['event_type'] !== 'cancelled')
+                || ($job['event_type'] === 'record' && $this->record_reminder_stale($job, $appointment));
             if ($discard) { $db->update('push_deliveries', ['status' => 'discarded', 'claim_expires_at' => null], ['id' => $job['id']]); continue; }
             try {
                 // Revalidate stored endpoints before every HTTP request; never follow redirects.
                 $this->validate_subscription(['endpoint' => $subscription['endpoint'], 'keys' => ['p256dh' => $subscription['public_key'], 'auth' => $subscription['auth_token']]]);
-                $title = match ($job['event_type']) {
-                    'moved' => 'Una cita cambió de horario', 'cancelled' => 'Una cita fue cancelada', default => 'Nueva reserva confirmada',
-                };
-                $result = $this->send($subscription, ['title' => 'Blondor · ' . $title,
-                    'body' => 'Abre tu agenda para ver el detalle.', 'tag' => 'blondor-' . $job['event_key'],
-                    'url' => $this->appointment_url((int) $appointment['id']),
-                ]);
+                if ($job['event_type'] === 'record') {
+                    // Sin nombre de la clienta: la hora de la visita basta y el enlace abre la ficha.
+                    $result = $this->send($subscription, ['title' => 'Blondor · Falta completar una ficha',
+                        'body' => 'La visita de las ' . date('H:i', strtotime($appointment['start_datetime'])) . ' del '
+                            . date('d/m', strtotime($appointment['start_datetime'])) . ' no tiene ficha. Tócala para completarla.',
+                        'tag' => 'blondor-record-' . (int) $appointment['id'],
+                        'url' => $this->appointment_url((int) $appointment['id'], true),
+                    ], 3600);
+                } else {
+                    $title = match ($job['event_type']) {
+                        'moved' => 'Una cita cambió de horario', 'cancelled' => 'Una cita fue cancelada', default => 'Nueva reserva confirmada',
+                    };
+                    $result = $this->send($subscription, ['title' => 'Blondor · ' . $title,
+                        'body' => 'Abre tu agenda para ver el detalle.', 'tag' => 'blondor-' . $job['event_key'],
+                        'url' => $this->appointment_url((int) $appointment['id']),
+                    ]);
+                }
                 if (!empty($result['expired'])) { $db->update('push_subscriptions', ['enabled' => 0], ['id' => $subscription['id']]); }
                 if (!empty($result['success'])) {
                     $db->update('push_deliveries', ['status' => 'sent', 'claim_expires_at' => null, 'update_datetime' => $now], ['id' => $job['id']]);

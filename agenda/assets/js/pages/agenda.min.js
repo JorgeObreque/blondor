@@ -2500,7 +2500,9 @@ App.Pages.Agenda = (function () {
         }
         if (provider(providerId)) { state.providerId = providerId; }
         loadDay().then(() => {
-            if (Number.isSafeInteger(appointmentId) && appointmentId > 0) { openDetailById(appointmentId); }
+            if (!Number.isSafeInteger(appointmentId) || appointmentId <= 0) { return; }
+            // El aviso de ficha pendiente abre directo la ficha de esa visita.
+            if (params.get('record') === '1') { openRecord({appointment_id: appointmentId}); } else { openDetailById(appointmentId); }
         });
     }
 

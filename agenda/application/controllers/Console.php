@@ -167,6 +167,15 @@ class Console extends EA_Controller
         $this->load->library('booking_reminders');
         $summary['reminders'] = $this->booking_reminders->run();
 
+        // Ficha pendiente: push cada hora a Guille hasta que la complete.
+        try {
+            $this->load->library('staff_push');
+            $summary['record_reminders'] = $this->staff_push->enqueue_record_reminders();
+            $this->staff_push->dispatch();
+        } catch (Throwable $e) {
+            log_message('error', 'Aviso de ficha pendiente: se reintentará en el próximo cron.');
+        }
+
         response(
             PHP_EOL . '⇾ Pagos: ' . json_encode($summary, JSON_UNESCAPED_UNICODE) . PHP_EOL . PHP_EOL,
         );

@@ -74,13 +74,14 @@ class Backoffice_push extends EA_Controller
     public function open(int $appointment_id = 0): void
     {
         if (!session('user_id')) {
-            session(['dest_url' => site_url('backoffice_push/open/' . $appointment_id)]); redirect('login'); return;
+            session(['dest_url' => site_url('backoffice_push/open/' . $appointment_id) . (request('ficha') ? '?ficha=1' : '')]); redirect('login'); return;
         }
         $this->require_staff();
         $appointment = $this->db->get_where('appointments', ['id' => $appointment_id])->row_array();
         if (!$appointment) { abort(404); }
         if (!$this->push_service->eligible_user((int) session('user_id'), (int) $appointment['id_users_provider'])) { abort(403); }
         redirect(site_url('agenda') . '?' . http_build_query(['date' => substr($appointment['start_datetime'], 0, 10),
-            'provider' => (int) $appointment['id_users_provider'], 'appointment' => $appointment_id]));
+            'provider' => (int) $appointment['id_users_provider'], 'appointment' => $appointment_id]
+            + (request('ficha') ? ['record' => 1] : [])));
     }
 }

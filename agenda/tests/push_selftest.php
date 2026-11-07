@@ -18,7 +18,7 @@ class Push_selftest extends Payments_selftest
         try {
             foreach (['test_cli_identity_and_links', 'test_endpoint_validation', 'test_encryption_with_mock_http', 'test_staff_only_and_idempotent_subscription',
                 'test_payment_push_and_mail_failure', 'test_expiration_and_retry', 'test_owner_and_permission_recheck',
-                'test_disable_only_affects_owner'] as $test) {
+                'test_disable_only_affects_owner', 'test_record_reminders'] as $test) {
                 try { $this->$test(); $this->passed++; }
                 catch (Throwable $e) { $this->failures[] = $test . ': ' . $e->getMessage(); }
             }
@@ -191,5 +191,79 @@ class Push_selftest extends Payments_selftest
         $this->ok($this->CI->staff_push->active_for_user($this->admin_id, $subscription['endpoint']), 'Otra cuenta no puede desactivar el dispositivo');
         $this->CI->staff_push->disable($this->admin_id, $subscription['endpoint']);
         $this->equals(null, $this->CI->staff_push->active_for_user($this->admin_id, $subscription['endpoint']), 'La dueña sí puede desactivarlo');
+    }
+
+    private function past_appointment(DateTimeImmutable $end, string $status = 'Agendado'): int
+    {
+        $this->CI->db->insert('appointments', ['id_users_provider' => $this->fixtures['provider_id'],
+            'id_users_customer' => $this->fixtures['customer_id'], 'id_services' => $this->fixtures['services']['exact'],
+            'start_datetime' => $end->modify('-1 hour')->format('Y-m-d H:i:s'), 'end_datetime' => $end->format('Y-m-d H:i:s'),
+            'book_datetime' => $end->format('Y-m-d H:i:s'), 'status' => $status, 'is_unavailability' => 0,
+            'notes' => 'zz_test ficha', 'hash' => bin2hex(random_bytes(8)), 'payment_status' => 'legacy']);
+        return (int) $this->CI->db->insert_id();
+    }
+
+    protected function test_record_reminders(): void
+    {
+        $saved = [];
+        foreach (['record_reminder_user_ids', 'record_reminders_started'] as $name) { $saved[$name] = setting($name); }
+        $jorge = $this->make_staff('zz_test_push_jorge', 1);
+        $guille = $this->subscription('guille'); $other = $this->subscription('record-other'); $boss = $this->subscription('jorge');
+        $this->CI->staff_push->subscribe($this->admin_id, $guille);
+        $this->CI->staff_push->subscribe($this->other_provider_id, $other);
+        $this->CI->staff_push->subscribe($jorge, $boss);
+        setting(['record_reminder_user_ids' => $this->admin_id . ',' . $this->other_provider_id, 'record_reminders_started' => '2000-01-01 00:00:00']);
+        $clock = new DateTimeImmutable('today 15:00', new DateTimeZone('America/Santiago'));
+        $ids = [];
+        try {
+            $ids['due'] = $this->past_appointment($clock->modify('-5 hours'));
+            $ids['recent'] = $this->past_appointment($clock->modify('-2 hours'));
+            $ids['cancelled'] = $this->past_appointment($clock->modify('-6 hours'), 'Cancelado');
+            $ids['noshow'] = $this->past_appointment($clock->modify('-6 hours'), 'No vino');
+            $ids['old'] = $this->past_appointment($clock->modify('-4 days'));
+            $ids['done'] = $this->past_appointment($clock->modify('-5 hours'), 'Pagado');
+            $this->CI->db->insert('visit_records', ['id_users_customer' => $this->fixtures['customer_id'], 'id_appointments' => $ids['done'], 'visit_date' => $clock->format('Y-m-d')]);
+
+            $this->equals(1, $this->CI->staff_push->enqueue_record_reminders($clock), 'Solo la visita de hace 4+ horas sin ficha, solo a Guille');
+            $job = $this->CI->db->get_where('push_deliveries', ['event_type' => 'record'])->row_array();
+            $this->equals($ids['due'], (int) $job['id_appointments'], 'El aviso es de la visita correcta');
+            $this->equals($this->admin_id, (int) $job['id_users'], 'Jorge y la profesional ajena no reciben el aviso');
+            $this->equals(0, $this->CI->staff_push->enqueue_record_reminders($clock->modify('+5 minutes')), 'El cron cada 5 minutos no repite');
+            $this->equals(0, $this->CI->staff_push->enqueue_record_reminders($clock->modify('+30 minutes')), 'No antes de una hora');
+            $this->equals(0, $this->CI->staff_push->enqueue_record_reminders($clock->setTime(22, 0)), 'Nada después de las 21:00');
+            $this->equals(0, $this->CI->staff_push->enqueue_record_reminders($clock->setTime(8, 30)), 'Nada antes de las 9:00');
+
+            $this->CI->db->update('push_deliveries', ['available_at' => date('Y-m-d H:i:s', time() - 60)], ['event_type' => 'record']);
+            $this->fake_push(); $this->sent = []; $this->CI->staff_push->dispatch();
+            $this->equals(1, count($this->sent), 'Se envía el aviso de ficha');
+            $this->ok(str_contains($this->sent[0]['title'], 'ficha'), 'Título del aviso de ficha');
+            $this->ok(str_ends_with($this->sent[0]['url'], '/backoffice_push/open/' . $ids['due'] . '?ficha=1'), 'El aviso abre la ficha');
+            $this->ok(!str_contains(json_encode($this->sent[0]), 'zz_test'), 'Sin datos de la clienta en la carga');
+
+            $this->equals(1, $this->CI->staff_push->enqueue_record_reminders($clock->modify('+61 minutes')), 'Una hora después insiste');
+            $this->CI->db->insert('visit_records', ['id_users_customer' => $this->fixtures['customer_id'], 'id_appointments' => $ids['due'], 'visit_date' => $clock->format('Y-m-d')]);
+            $this->CI->db->update('push_deliveries', ['available_at' => date('Y-m-d H:i:s', time() - 60)], ['event_type' => 'record', 'status' => 'pending']);
+            $this->sent = []; $this->CI->staff_push->dispatch();
+            $this->equals(0, count($this->sent), 'Con la ficha hecha no se envía lo pendiente');
+            $this->CI->staff_push->enqueue_record_reminders($clock->modify('+3 hours'));
+            $this->equals(0, $this->CI->db->where(['event_type' => 'record', 'id_appointments' => $ids['due'], 'status' => 'pending'])
+                ->count_all_results('push_deliveries'), 'Con la ficha hecha deja de insistir');
+            $this->equals(1, $this->CI->db->where(['event_type' => 'record', 'id_appointments' => $ids['recent']])
+                ->count_all_results('push_deliveries'), 'La visita que cumplió 4 horas empieza a avisar');
+            $before = $this->CI->db->where('event_type', 'record')->where_in('id_appointments', array_values($ids))->count_all_results('push_deliveries');
+            $this->CI->staff_push->enqueue_record_reminders($clock->modify('+3 days')->setTime(15, 0));
+            $this->equals($before, $this->CI->db->where('event_type', 'record')->where_in('id_appointments', array_values($ids))
+                ->count_all_results('push_deliveries'), 'Después de 3 días deja de insistir');
+        } finally {
+            setting($saved);
+            if ($ids) {
+                $this->CI->db->where_in('id_appointments', array_values($ids))->delete('visit_records');
+                $this->CI->db->where_in('id_appointments', array_values($ids))->delete('push_deliveries');
+                $this->CI->db->where_in('id', array_values($ids))->delete('appointments');
+            }
+            foreach ([[$this->admin_id, $guille], [$this->other_provider_id, $other], [$jorge, $boss]] as [$user, $subscription]) {
+                $this->CI->staff_push->disable($user, $subscription['endpoint']);
+            }
+        }
     }
 }
