@@ -11,4 +11,5 @@ docker compose exec -T db mariadb-dump -uroot -proot --no-create-info agenda ea_
 docker compose exec -T app php index.php console test_payments "$TEST_DB"
 docker compose exec -T app php index.php console test_push "$TEST_DB"
 docker compose exec -T app php index.php console test_reminders "$TEST_DB"
+docker compose exec -T app php index.php console test_promo "$TEST_DB"
 echo "Resultados conservados en $TEST_DB. HTTP/navegador requieren verificación separada."

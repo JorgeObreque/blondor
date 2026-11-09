@@ -52,6 +52,17 @@ App.Pages.ServicePrices = (function () {
 
     const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 
+    // ISO weekdays, like the agenda stores them (1 = lunes).
+    const WEEKDAYS = [
+        {value: 1, label: 'Lun'},
+        {value: 2, label: 'Mar'},
+        {value: 3, label: 'Mié'},
+        {value: 4, label: 'Jue'},
+        {value: 5, label: 'Vie'},
+        {value: 6, label: 'Sáb'},
+        {value: 7, label: 'Dom'},
+    ];
+
     const ROUNDINGS = [
         {key: '990', label: 'Terminar en 990', apply: (value) => Math.max(990, Math.round((value + 10) / 1000) * 1000 - 10)},
         {key: '1000', label: 'A los $1.000', apply: (value) => Math.max(1000, Math.round(value / 1000) * 1000)},
@@ -412,6 +423,22 @@ App.Pages.ServicePrices = (function () {
         );
     }
 
+    /**
+     * "Promo lun, mar, mié · 3 por día".
+     */
+    function promoText(item) {
+        const days = (item.promo_weekdays || [])
+            .map((value) => (WEEKDAYS.find((day) => day.value === value) || {}).label)
+            .filter(Boolean)
+            .map((label) => label.toLowerCase());
+
+        return (
+            'Promo' +
+            (days.length ? ' ' + days.join(', ') : '') +
+            (item.promo_daily_quota ? ' · ' + item.promo_daily_quota + ' por día' : '')
+        );
+    }
+
     function row(item) {
         const price = priceText(item);
         const selectable = state.selecting && item.price > 0;
@@ -427,7 +454,7 @@ App.Pages.ServicePrices = (function () {
                     <span class="prices-row__text">
                         <span class="prices-row__title">${esc(state.filter === 'all' && !state.keyword ? variantName(item) : capitalize(item.name.trim()))}</span>
                         <span class="prices-row__sub">
-                            ${esc(usageText(item))} · ${duration(item.duration)}${item.variants.length ? ' · ' + item.variants.length + ' largos' : ''}
+                            ${esc(usageText(item))} · ${duration(item.duration)}${item.variants.length ? ' · ' + item.variants.length + ' largos' : ''}${item.is_promo ? ' · ' + esc(promoText(item)) : ''}
                             ${warn ? `<span class="prices-row__warn">· ${esc(warn)}</span>` : ''}
                         </span>
                     </span>
@@ -730,6 +757,35 @@ App.Pages.ServicePrices = (function () {
                 </label>
 
                 <label class="prices-toggle">
+                    <input type="checkbox" id="edit-promo" ${item.is_promo ? 'checked' : ''}>
+                    <span>
+                        <strong>¿Es promoción?</strong>
+                        <span>Permite limitar los días y los cupos diarios en que se puede agendar.</span>
+                    </span>
+                </label>
+
+                <div id="edit-promo-body" class="prices-promo" ${item.is_promo ? '' : 'hidden'}>
+                    <div class="wizard-field">
+                        <span>Días en que se puede agendar</span>
+                        <div class="prices-chips" role="group" aria-label="Días de la promoción">
+                            ${WEEKDAYS.map(
+                                (day) => `
+                                <button type="button" class="prices-chip" data-promo-day="${day.value}"
+                                        aria-pressed="${(item.promo_weekdays || []).includes(day.value)}">${day.label}</button>`,
+                            ).join('')}
+                        </div>
+                        <small class="prices-promo__hint">Sin días marcados, se puede agendar cualquier día.</small>
+                    </div>
+
+                    <label class="wizard-field">
+                        <span>Cupos por día</span>
+                        <input type="number" id="edit-promo-quota" class="prices-chip prices-chip--input" min="1" max="50"
+                               step="1" inputmode="numeric" placeholder="sin límite" aria-label="Cupos por día"
+                               value="${item.promo_daily_quota || ''}">
+                    </label>
+                </div>
+
+                <label class="prices-toggle">
                     <input type="checkbox" id="edit-archived" ${item.is_archived ? 'checked' : ''}>
                     <span>
                         <strong>Ocultar del catálogo</strong>
@@ -808,6 +864,30 @@ App.Pages.ServicePrices = (function () {
             change.is_archived = archived;
         }
 
+        const promo = $edit.find('#edit-promo').prop('checked');
+
+        if (promo !== Boolean(item.is_promo)) {
+            change.is_promo = promo;
+        }
+
+        // Turning the promotion off keeps its days and quota (they are ignored), so turning it on restores them.
+        if (promo) {
+            const days = $edit
+                .find('[data-promo-day][aria-pressed="true"]')
+                .map((index, element) => Number($(element).data('promo-day')))
+                .get()
+                .sort((a, b) => a - b);
+            const quota = Number($edit.find('#edit-promo-quota').val()) || null;
+
+            if (days.join(',') !== (item.promo_weekdays || []).join(',')) {
+                change.promo_weekdays = days;
+            }
+
+            if (quota !== (item.promo_daily_quota || null)) {
+                change.promo_daily_quota = quota;
+            }
+        }
+
         return change;
     }
 
@@ -843,7 +923,11 @@ App.Pages.ServicePrices = (function () {
             ? 'Servicio oculto'
             : change.is_archived === false
               ? 'Servicio visible otra vez'
-              : 'variants' in change && change.variants.length
+              : change.is_promo === true
+                ? capitalize(item.name.trim()) + ': ahora es promoción'
+                : change.is_promo === false
+                  ? capitalize(item.name.trim()) + ': ya no es promoción'
+                  : 'variants' in change && change.variants.length
                 ? capitalize(item.name.trim()) + ': precios por largo guardados'
                 : 'price' in change
                   ? capitalize(item.name.trim()) + ': ' + (change.price ? money(change.price) : 'sin precio')
@@ -1214,6 +1298,15 @@ App.Pages.ServicePrices = (function () {
             if (event.target.value) {
                 $edit.find('[data-duration]').attr('aria-checked', 'false');
             }
+        });
+
+        $edit.on('change', '#edit-promo', (event) => {
+            $edit.find('#edit-promo-body').prop('hidden', !event.target.checked);
+        });
+
+        $edit.on('click', '[data-promo-day]', (event) => {
+            const $day = $(event.currentTarget);
+            $day.attr('aria-pressed', String($day.attr('aria-pressed') !== 'true'));
         });
 
         $edit.on('submit', '#edit-form', (event) => {

@@ -17,9 +17,14 @@ App.Http.ServicePrices = (function () {
      */
     function save(changes) {
         // A form post drops empty arrays: "no lengths" travels as an empty string.
-        changes = changes.map((change) =>
-            Array.isArray(change.variants) && !change.variants.length ? {...change, variants: ''} : change,
-        );
+        changes = changes.map((change) => {
+            change = Array.isArray(change.variants) && !change.variants.length ? {...change, variants: ''} : change;
+
+            // Promo weekdays travel as "1,2,3" ("" = every day), so clearing them also reaches the server.
+            return Array.isArray(change.promo_weekdays)
+                ? {...change, promo_weekdays: change.promo_weekdays.join(',')}
+                : change;
+        });
 
         return new Promise((resolve, reject) => {
             $.ajax({

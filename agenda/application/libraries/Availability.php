@@ -69,6 +69,10 @@ class Availability
             return [];
         }
 
+        if ($this->is_promo_closed($date, $service, $exclude_appointment_id, $exclude_hold_id)) {
+            return [];
+        }
+
         if ($service['attendants_number'] > 1) {
             $available_hours = $this->consider_multiple_attendants(
                 $date,
@@ -91,6 +95,97 @@ class Availability
         $available_hours = $this->consider_book_advance_timeout($date, $available_hours, $provider);
 
         return $this->consider_future_booking_limit($date, $available_hours, $provider);
+    }
+
+    /**
+     * Blondor: whether a promotional service cannot be booked on a date.
+     *
+     * Only services marked as promotion have rules: the allowed weekdays and a maximum of appointments per day. The
+     * quota counts the non cancelled appointments of the service on that date plus the bookings waiting for a payment,
+     * so two clients paying at the same time cannot go over it.
+     *
+     * @param string $date Selected date (Y-m-d).
+     * @param array $service Service data.
+     * @param int|null $exclude_appointment_id Appointment being rescheduled (does not use a slot of its own).
+     * @param int|null $exclude_hold_id Pending payment being confirmed (does not use a slot of its own).
+     */
+    public function is_promo_closed(
+        string $date,
+        array $service,
+        int $exclude_appointment_id = null,
+        int $exclude_hold_id = null,
+    ): bool {
+        $rules = $this->promo_rules($service);
+
+        if (!$rules['is_promo']) {
+            return false;
+        }
+
+        if ($rules['weekdays'] && !in_array((int) date('N', strtotime($date)), $rules['weekdays'], true)) {
+            return true;
+        }
+
+        if (!$rules['daily_quota']) {
+            return false;
+        }
+
+        $this->CI->db
+            ->from('appointments')
+            ->where('id_services', (int) $service['id'])
+            ->where('is_unavailability', false)
+            ->where('start_datetime >=', $date . ' 00:00:00')
+            ->where('start_datetime <=', $date . ' 23:59:59')
+            ->where('IFNULL(status, "") != "Cancelado"', null, false);
+
+        if ($exclude_appointment_id) {
+            $this->CI->db->where('id !=', $exclude_appointment_id);
+        }
+
+        $taken = $this->CI->db->count_all_results();
+
+        foreach ($this->CI->booking_payments_model->active_holds($exclude_hold_id) as $hold) {
+            if ((int) $hold['id_services'] === (int) $service['id'] && substr($hold['start_datetime'], 0, 10) === $date) {
+                $taken++;
+            }
+        }
+
+        return $taken >= $rules['daily_quota'];
+    }
+
+    /**
+     * Blondor: the promotion rules of a service ({is_promo, weekdays: int[], daily_quota: int|null}).
+     *
+     * Read from the database when the given array does not carry them, so a caller cannot skip the rules.
+     */
+    public function promo_rules(array $service): array
+    {
+        if (!array_key_exists('is_promo', $service) && !empty($service['id'])) {
+            $row = $this->CI->db->field_exists('is_promo', 'services')
+                ? $this->CI->db
+                    ->select('is_promo, promo_weekdays, promo_daily_quota')
+                    ->get_where('services', ['id' => (int) $service['id']])
+                    ->row_array()
+                : null;
+
+            $service = array_merge($service, $row ?: []);
+        }
+
+        $weekdays = array_values(
+            array_unique(
+                array_filter(
+                    array_map('intval', explode(',', (string) ($service['promo_weekdays'] ?? ''))),
+                    fn($day) => $day >= 1 && $day <= 7,
+                ),
+            ),
+        );
+
+        $quota = (int) ($service['promo_daily_quota'] ?? 0);
+
+        return [
+            'is_promo' => filter_var($service['is_promo'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'weekdays' => $weekdays,
+            'daily_quota' => $quota > 0 ? $quota : null,
+        ];
     }
 
     /**

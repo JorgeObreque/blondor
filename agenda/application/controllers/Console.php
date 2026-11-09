@@ -275,6 +275,19 @@ class Console extends EA_Controller
         if ($result['failed']) { exit(1); }
     }
 
+    /** Promo services (allowed weekdays and daily quota): isolated local database only. */
+    public function test_promo(string $database = ''): void
+    {
+        if (Config::DB_HOST !== 'db' || Config::DB_NAME !== 'agenda' || Config::WEBPAY_ENVIRONMENT !== 'integration'
+            || !preg_match('/^agenda_payments_test_[a-f0-9]{12}$/D', $database)) { exit(1); }
+        $this->db->db_select($database);
+        require_once APPPATH . '../tests/promo_selftest.php';
+        $result = (new Promo_selftest($this))->run();
+        foreach ($result['failures'] as $failure) { echo 'FAIL ' . $failure . PHP_EOL; }
+        echo 'Promociones: ' . $result['passed'] . ' ok, ' . $result['failed'] . ' con error.' . PHP_EOL;
+        if ($result['failed']) { exit(1); }
+    }
+
     /** Parallel reminder worker: isolated local DB and synthetic mail only. */
     public function reminders_test_worker(string $database = '', string $clock = ''): void
     {

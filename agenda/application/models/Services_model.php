@@ -29,6 +29,7 @@ class Services_model extends EA_Model
         'attendants_number' => 'integer',
         'is_private' => 'boolean',
         'id_service_categories' => 'integer',
+        'is_promo' => 'boolean',
     ];
 
     /**

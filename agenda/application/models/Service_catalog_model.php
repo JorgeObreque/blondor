@@ -159,6 +159,18 @@ class Service_catalog_model extends EA_Model
                 $update['is_archived'] = filter_var($change['is_archived'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
             }
 
+            if (array_key_exists('is_promo', $change)) {
+                $update['is_promo'] = filter_var($change['is_promo'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+            }
+
+            if (array_key_exists('promo_weekdays', $change)) {
+                $update['promo_weekdays'] = $this->valid_weekdays($change['promo_weekdays']);
+            }
+
+            if (array_key_exists('promo_daily_quota', $change)) {
+                $update['promo_daily_quota'] = $this->valid_quota($change['promo_daily_quota']);
+            }
+
             if ($update) {
                 $update['update_datetime'] = $now;
                 $this->db->update('services', $update, ['id' => $service['id']]);
@@ -246,6 +258,47 @@ class Service_catalog_model extends EA_Model
         return $price;
     }
 
+    /**
+     * Promo weekdays (ISO, 1 = lunes) as "1,2,3", or null for every day.
+     */
+    private function valid_weekdays($value): ?string
+    {
+        $days = is_array($value) ? $value : explode(',', (string) $value);
+        $valid = [];
+
+        foreach ($days as $day) {
+            if ($day === '' || $day === null) {
+                continue;
+            }
+
+            if (!is_numeric($day) || (int) $day < 1 || (int) $day > 7) {
+                throw new InvalidArgumentException('Día de promoción no válido.');
+            }
+
+            $valid[(int) $day] = (int) $day;
+        }
+
+        ksort($valid);
+
+        return $valid ? implode(',', $valid) : null;
+    }
+
+    /**
+     * Appointments per day of a promo (1 - 50), or null for no limit.
+     */
+    private function valid_quota($value): ?int
+    {
+        if ($value === '' || $value === null || $value === false) {
+            return null;
+        }
+
+        if (!is_numeric($value) || (int) $value != $value || (int) $value < 1 || (int) $value > 50) {
+            throw new InvalidArgumentException('Los cupos por día deben ser entre 1 y 50.');
+        }
+
+        return (int) $value;
+    }
+
     private function card(array $service, array $variants = []): array
     {
         return [
@@ -256,6 +309,11 @@ class Service_catalog_model extends EA_Model
             'duration' => (int) $service['duration'],
             'category_id' => $service['id_service_categories'] ? (int) $service['id_service_categories'] : null,
             'is_archived' => (bool) ($service['is_archived'] ?? false),
+            'is_promo' => (bool) ($service['is_promo'] ?? false),
+            'promo_weekdays' => array_values(
+                array_map('intval', array_filter(explode(',', (string) ($service['promo_weekdays'] ?? '')), 'strlen')),
+            ),
+            'promo_daily_quota' => !empty($service['promo_daily_quota']) ? (int) $service['promo_daily_quota'] : null,
             'variants' => array_map(
                 fn($variant) => [
                     'hair_length' => $variant['hair_length'],

@@ -546,7 +546,8 @@
   font-weight: 700;
 }
 
-.prices-chip[aria-checked="true"] {
+.prices-chip[aria-checked="true"],
+.prices-chip[aria-pressed="true"] {
   background: var(--ag-ink);
   border-color: var(--ag-ink);
   color: #fff;
@@ -602,6 +603,24 @@
 .prices-toggle strong {
   font-size: 15px;
   color: var(--ag-ink);
+}
+
+.prices-promo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--ag-radius);
+  border: 1px dashed var(--ag-line);
+}
+
+.prices-promo[hidden] {
+  display: none;
+}
+
+.prices-promo__hint {
+  font-size: 12px;
+  color: var(--ag-muted);
 }
 
 .prices-edit__actions {

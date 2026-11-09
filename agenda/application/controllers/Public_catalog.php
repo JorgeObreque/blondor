@@ -22,10 +22,13 @@ class Public_catalog extends EA_Controller
         $this->load->model('services_model');
         $this->load->model('providers_model');
         $this->load->model('service_variants_model');
+
+        $this->load->library('availability');
     }
 
     /**
-     * GET public_catalog: [{id, name, duration, price, price_type, variants: [{hair_length, label, price, duration}]}]
+     * GET public_catalog: [{id, name, duration, price, price_type, is_promo, promo_weekdays, promo_daily_quota,
+     * variants: [{hair_length, label, price, duration}]}]
      * de los servicios reservables online.
      */
     public function index(): void
@@ -66,6 +69,14 @@ class Public_catalog extends EA_Controller
                     'duration' => (int) $service['duration'],
                     'price' => (float) $service['price'],
                     'price_type' => $service['price_type'] ?? 'fixed',
+                    // Blondor: promoción con días y cupos (solo informativo; la agenda aplica las reglas).
+                    'is_promo' => (bool) ($service['is_promo'] ?? false),
+                    'promo_weekdays' => !empty($service['is_promo'])
+                        ? $this->availability->promo_rules($service)['weekdays']
+                        : [],
+                    'promo_daily_quota' => !empty($service['is_promo'])
+                        ? $this->availability->promo_rules($service)['daily_quota']
+                        : null,
                     'variants' => array_map(
                         fn($variant) => [
                             'hair_length' => $variant['hair_length'],
