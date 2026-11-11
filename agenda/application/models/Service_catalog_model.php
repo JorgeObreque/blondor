@@ -107,6 +107,22 @@ class Service_catalog_model extends EA_Model
             $previous_variants = $this->service_variants_model->of_service((int) $service['id']);
             $variant_changes = [];
 
+            // Blondor: a promotion has a single price, never one per hair length. Checked before anything is written.
+            $promo_after = array_key_exists('is_promo', $change)
+                ? filter_var($change['is_promo'], FILTER_VALIDATE_BOOLEAN)
+                : !empty($service['is_promo']);
+            $variants_after = array_key_exists('variants', $change)
+                ? count(is_array($change['variants']) ? $change['variants'] : [])
+                : count($previous_variants);
+
+            if ($promo_after && $variants_after) {
+                throw new InvalidArgumentException('Una promoción tiene un solo precio: quita los diferentes largos.');
+            }
+
+            if ($promo_after) {
+                $change['price_type'] = 'fixed';
+            }
+
             if (array_key_exists('variants', $change)) {
                 $variants = is_array($change['variants']) ? $change['variants'] : [];
                 $variant_changes = $this->service_variants_model->replace((int) $service['id'], $variants);
@@ -169,6 +185,13 @@ class Service_catalog_model extends EA_Model
 
             if (array_key_exists('promo_daily_quota', $change)) {
                 $update['promo_daily_quota'] = $this->valid_quota($change['promo_daily_quota']);
+            }
+
+            if (array_key_exists('promo_regular_service_id', $change)) {
+                $update['promo_regular_service_id'] = $this->valid_regular_service(
+                    $change['promo_regular_service_id'],
+                    (int) $service['id'],
+                );
             }
 
             if ($update) {
@@ -299,6 +322,26 @@ class Service_catalog_model extends EA_Model
         return (int) $value;
     }
 
+    /**
+     * The regular service a promo discounts (its price is shown struck through), or null for none.
+     */
+    private function valid_regular_service($value, int $promo_id): ?int
+    {
+        if ($value === '' || $value === null || $value === false || $value === '0' || $value === 0) {
+            return null;
+        }
+
+        if (!is_numeric($value) || (int) $value != $value || (int) $value === $promo_id) {
+            throw new InvalidArgumentException('Servicio de precio normal no válido.');
+        }
+
+        if (!$this->db->get_where('services', ['id' => (int) $value])->num_rows()) {
+            throw new InvalidArgumentException('El servicio de precio normal no existe.');
+        }
+
+        return (int) $value;
+    }
+
     private function card(array $service, array $variants = []): array
     {
         return [
@@ -314,6 +357,9 @@ class Service_catalog_model extends EA_Model
                 array_map('intval', array_filter(explode(',', (string) ($service['promo_weekdays'] ?? '')), 'strlen')),
             ),
             'promo_daily_quota' => !empty($service['promo_daily_quota']) ? (int) $service['promo_daily_quota'] : null,
+            'promo_regular_service_id' => !empty($service['promo_regular_service_id'])
+                ? (int) $service['promo_regular_service_id']
+                : null,
             'variants' => array_map(
                 fn($variant) => [
                     'hair_length' => $variant['hair_length'],

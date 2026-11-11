@@ -94,6 +94,8 @@ $manage_mode = vars('manage_mode');
 
         <!-- Paso 2: día y hora -->
         <section class="bk-step" data-step="time" hidden>
+            <div class="bk-promo" id="bk-promo" hidden><!-- JS: la oferta de una promoción --></div>
+
             <button type="button" class="bk-picked" id="bk-picked-service">
                 <span class="bk-picked__text"><!-- JS --></span>
                 <span class="bk-picked__change">Cambiar</span>

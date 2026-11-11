@@ -29,6 +29,8 @@ class Promo_selftest extends Payments_selftest
                 'test_booking_is_rejected_when_full',
                 'test_turning_promo_off_lifts_the_rules',
                 'test_catalog_saves_and_validates_the_rules',
+                'test_catalog_saves_the_regular_service',
+                'test_promo_has_a_single_price',
             ] as $test) {
                 try {
                     $this->reset_promo();
@@ -59,7 +61,7 @@ class Promo_selftest extends Payments_selftest
 
         $this->CI->db->update(
             'services',
-            ['is_promo' => 1, 'promo_weekdays' => '1,2,3', 'promo_daily_quota' => 3],
+            ['is_promo' => 1, 'promo_weekdays' => '1,2,3', 'promo_daily_quota' => 3, 'promo_regular_service_id' => null],
             ['id' => $this->fixtures['services']['promo']],
         );
 
@@ -275,5 +277,67 @@ class Promo_selftest extends Payments_selftest
 
             $this->ok($failed, 'Se rechaza ' . json_encode($invalid));
         }
+    }
+
+    protected function test_catalog_saves_the_regular_service(): void
+    {
+        $id = $this->fixtures['services']['promo'];
+        $regular = $this->fixtures['services']['plain'];
+
+        $saved = $this->CI->service_catalog_model->save_changes([['id' => $id, 'promo_regular_service_id' => (string) $regular]], 0);
+        $this->equals($regular, $saved[0]['service']['promo_regular_service_id'], 'La ficha conoce el servicio de precio normal');
+        $this->equals(null, $saved[0]['previous']['promo_regular_service_id'], 'Deshacer sabe que antes no tenía');
+
+        $this->CI->service_catalog_model->save_changes([['id' => $id, 'promo_regular_service_id' => '']], 0);
+        $row = $this->CI->db->get_where('services', ['id' => $id])->row_array();
+        $this->ok($row['promo_regular_service_id'] === null, 'Vacío deja de mostrar el precio normal');
+
+        foreach ([(string) $id, '999999999', 'balayage', '2.5'] as $invalid) {
+            try {
+                $this->CI->service_catalog_model->save_changes([['id' => $id, 'promo_regular_service_id' => $invalid]], 0);
+                $failed = false;
+            } catch (InvalidArgumentException $e) {
+                $failed = true;
+                $this->CI->db->trans_complete();
+            }
+
+            $this->ok($failed, 'Se rechaza el precio normal ' . json_encode($invalid));
+        }
+    }
+
+    protected function test_promo_has_a_single_price(): void
+    {
+        $promo = $this->fixtures['services']['promo'];
+        $plain = $this->fixtures['services']['plain'];
+        $lengths = [['hair_length' => 'short', 'price' => 81000], ['hair_length' => 'xlong', 'price' => 91000]];
+
+        $rejected = function (array $change, string $message) {
+            try {
+                $this->CI->service_catalog_model->save_changes([$change], 0);
+                $failed = false;
+            } catch (InvalidArgumentException $e) {
+                $failed = true;
+                $this->CI->db->trans_complete();
+            }
+
+            $this->ok($failed, $message);
+        };
+
+        $rejected(['id' => $promo, 'variants' => $lengths], 'Una promo no acepta precios por largo');
+        $this->equals(0, count($this->CI->service_variants_model->of_service($promo)), 'La promo sigue sin largos');
+
+        $this->CI->service_catalog_model->save_changes([['id' => $plain, 'variants' => $lengths]], 0);
+        $rejected(['id' => $plain, 'is_promo' => 'true'], 'Un servicio con largos no se vuelve promo sin quitarlos');
+        $this->equals(0, (int) $this->CI->db->get_where('services', ['id' => $plain])->row()->is_promo, 'Sigue sin ser promo');
+
+        $saved = $this->CI->service_catalog_model->save_changes(
+            [['id' => $plain, 'is_promo' => 'true', 'variants' => [], 'price' => '81000', 'price_type' => 'from']],
+            0,
+        );
+        $this->equals(true, $saved[0]['service']['is_promo'], 'Quitando los largos sí se vuelve promo');
+        $this->equals([], $saved[0]['service']['variants'], 'Quedó sin largos');
+        $this->equals('fixed', $saved[0]['service']['price_type'], 'Una promo tiene precio fijo, no «desde»');
+
+        $this->CI->service_catalog_model->save_changes([['id' => $plain, 'is_promo' => 'false']], 0);
     }
 }

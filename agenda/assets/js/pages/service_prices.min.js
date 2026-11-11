@@ -27,6 +27,7 @@ App.Pages.ServicePrices = (function () {
     const $toast = $('#prices-toast');
 
     const services = vars('catalog_services') || [];
+    const PROMO_SINGLE_PRICE = 'Las promociones tienen un solo precio para todos los largos.';
     const categories = vars('catalog_categories') || [];
     const canEdit = !!vars('catalog_can_edit');
     const recentMonths = vars('catalog_recent_months') || 6;
@@ -720,10 +721,14 @@ App.Pages.ServicePrices = (function () {
                 <div class="prices-price">
                     <span class="prices-price__label">Precio</span>
                     <label class="prices-toggle">
-                        <input type="checkbox" id="edit-lengths" ${lengths ? 'checked' : ''}>
+                        <input type="checkbox" id="edit-lengths" ${lengths ? 'checked' : ''} ${item.is_promo ? 'disabled' : ''}>
                         <span>
                             <strong>Activar diferentes largos</strong>
-                            <span>Corto, mediano, largo y extra largo, cada uno con su precio. La clienta elige su largo al reservar.</span>
+                            <span id="edit-lengths-hint">${
+                                item.is_promo
+                                    ? PROMO_SINGLE_PRICE
+                                    : 'Corto, mediano, largo y extra largo, cada uno con su precio. La clienta elige su largo al reservar.'
+                            }</span>
                         </span>
                     </label>
                     <div id="edit-price-body" class="prices-price">${priceBody(item, lengths)}</div>
@@ -782,6 +787,22 @@ App.Pages.ServicePrices = (function () {
                         <input type="number" id="edit-promo-quota" class="prices-chip prices-chip--input" min="1" max="50"
                                step="1" inputmode="numeric" placeholder="sin límite" aria-label="Cupos por día"
                                value="${item.promo_daily_quota || ''}">
+                    </label>
+
+                    <label class="wizard-field">
+                        <span>Precio normal</span>
+                        <select id="edit-promo-regular">
+                            <option value="">No mostrar</option>
+                            ${services
+                                .filter((option) => option.id !== item.id && (!option.is_archived || option.id === item.promo_regular_service_id))
+                                .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+                                .map(
+                                    (option) =>
+                                        `<option value="${option.id}" ${option.id === item.promo_regular_service_id ? 'selected' : ''}>${esc(capitalize(option.name.trim()))}</option>`,
+                                )
+                                .join('')}
+                        </select>
+                        <small class="prices-promo__hint">Al reservar se muestra su precio tachado junto al de la promoción.</small>
                     </label>
                 </div>
 
@@ -885,6 +906,12 @@ App.Pages.ServicePrices = (function () {
 
             if (quota !== (item.promo_daily_quota || null)) {
                 change.promo_daily_quota = quota;
+            }
+
+            const regular = Number($edit.find('#edit-promo-regular').val()) || null;
+
+            if (regular !== (item.promo_regular_service_id || null)) {
+                change.promo_regular_service_id = regular || '';
             }
         }
 
@@ -1300,8 +1327,25 @@ App.Pages.ServicePrices = (function () {
             }
         });
 
+        // A promotion has a single price: turning it on leaves the lengths (the single price starts from the short one).
         $edit.on('change', '#edit-promo', (event) => {
-            $edit.find('#edit-promo-body').prop('hidden', !event.target.checked);
+            const promo = event.target.checked;
+            const $lengths = $edit.find('#edit-lengths');
+
+            $edit.find('#edit-promo-body').prop('hidden', !promo);
+
+            if (promo && $lengths.prop('checked')) {
+                $lengths.prop('checked', false).trigger('change');
+            }
+
+            $lengths.prop('disabled', promo);
+            $edit
+                .find('#edit-lengths-hint')
+                .text(
+                    promo
+                        ? PROMO_SINGLE_PRICE
+                        : 'Corto, mediano, largo y extra largo, cada uno con su precio. La clienta elige su largo al reservar.',
+                );
         });
 
         $edit.on('click', '[data-promo-day]', (event) => {

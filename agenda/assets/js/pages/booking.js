@@ -453,7 +453,9 @@ App.Pages.Booking = (function () {
             $barText.html(
                 ready
                     ? `<strong>${esc(dateShort(state.date))} · ${esc(timeText(state.time))}</strong>
-                       <span>${esc(bookedName())}</span>`
+                       ${promoSaving()
+                           ? `<span class="bk-bar__promo">Promo · ${esc(promoSaving())}</span>`
+                           : `<span>${esc(bookedName())}</span>`}`
                     : '<span>Elige una hora para continuar</span>',
             );
             $next.text('Continuar').prop('disabled', !ready);
@@ -631,6 +633,102 @@ App.Pages.Booking = (function () {
     /**
      * "¿Qué largo tienes?": one card per length with its figure and price. Choosing one goes on to day and time.
      */
+    const PROMO_DAYS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'];
+
+    /**
+     * The regular price of a promo (a promotion has a single price): the price of the service it discounts, the
+     * shortest length's when that one is priced by length ("desde"). Null when the promo names no regular service.
+     */
+    function regularPrice(item) {
+        const regular = item.is_promo && item.promo_regular_service_id ? service(item.promo_regular_service_id) : null;
+
+        if (!regular) {
+            return null;
+        }
+
+        const prices = regular.variants.map((variant) => variant.price).filter((price) => price > 0);
+
+        return prices.length
+            ? {price: Math.min(...prices), from: prices.length > 1}
+            : {price: regular.price, from: regular.price_type === 'from'};
+    }
+
+    /**
+     * The offer of a promo service, or null for a regular one: its days ("lunes a miércoles"), slots per day and, when it
+     * names its regular service, the regular price, the discount and the saving.
+     */
+    function promoOffer(item) {
+        if (!item || !item.is_promo) {
+            return null;
+        }
+
+        const days = String(item.promo_weekdays || '')
+            .split(',')
+            .map(Number)
+            .filter((day) => day >= 1 && day <= 7)
+            .sort((a, b) => a - b);
+        const consecutive = days.length > 2 && days.every((day, index) => !index || day === days[index - 1] + 1);
+        const regular = regularPrice(item);
+        const discounted = regular && item.price > 0 && regular.price > item.price;
+
+        return {
+            days: !days.length || days.length === 7
+                ? ''
+                : consecutive
+                  ? PROMO_DAYS[days[0] - 1] + ' a ' + PROMO_DAYS[days[days.length - 1] - 1]
+                  : days.map((day) => PROMO_DAYS[day - 1]).join(', '),
+            quota: Number(item.promo_daily_quota) > 0 ? Number(item.promo_daily_quota) : 0,
+            regular: discounted ? regular : null,
+            percent: discounted ? Math.round((1 - item.price / regular.price) * 100) : 0,
+            saving: discounted ? regular.price - item.price : 0,
+        };
+    }
+
+    /**
+     * "Ahorras $14.500" for a discounted promo (empty otherwise), repeated in the bar and the summary.
+     */
+    function promoSaving() {
+        const offer = promoOffer(booked());
+
+        return offer && offer.saving ? 'Ahorras ' + (offer.regular.from ? 'desde ' : '') + money(offer.saving) : '';
+    }
+
+    function renderPromo() {
+        const item = booked();
+        const offer = promoOffer(item);
+
+        $('#bk-promo').prop('hidden', !offer);
+
+        if (!offer) {
+            return;
+        }
+
+        const conditions = [
+            offer.days ? 'Solo ' + offer.days : '',
+            offer.quota ? offer.quota + ' cupos por día' : '',
+        ].filter(Boolean);
+
+        $('#bk-promo').html(`
+            <div class="bk-promo__tags">
+                <span class="bk-promo__tag">Promoción</span>
+                ${offer.percent ? `<span class="bk-promo__tag bk-promo__tag--off">${offer.percent}% dcto.</span>` : ''}
+            </div>
+            <p class="bk-promo__prices">
+                ${offer.regular
+                    ? `<s aria-label="Precio normal ${esc((offer.regular.from ? 'desde ' : '') + money(offer.regular.price))}">${esc(
+                          money(offer.regular.price),
+                      )}</s>`
+                    : ''}
+                <strong>${esc(money(item.price))}</strong>
+            </p>
+            ${offer.saving
+                ? `<p class="bk-promo__saving">Ahorras ${offer.regular.from ? 'desde ' : ''}${esc(money(offer.saving))}
+                       · precio único para todo largo</p>`
+                : '<p class="bk-promo__saving">Precio único para todo largo</p>'}
+            ${conditions.length ? `<p class="bk-promo__when">${esc(conditions.join(' · '))}</p>` : ''}
+        `);
+    }
+
     function openLengthSheet(open) {
         $('#bk-backdrop, #bk-length-sheet').prop('hidden', !open);
         $('body').toggleClass('bk-locked', open);
@@ -720,6 +818,7 @@ App.Pages.Booking = (function () {
                  <span>${esc([durationText(item.duration), price].filter(Boolean).join(' · '))}</span>`,
             );
 
+        renderPromo();
         renderLengths();
         renderProviders();
         renderDays();
@@ -969,7 +1068,8 @@ App.Pages.Booking = (function () {
             <p class="bk-summary__when">${esc(capitalize(dateLong(state.date)))}, ${esc(timeText(state.time))}</p>
             <ul class="bk-summary__facts">
                 <li>${esc(durationText(item.duration))}</li>
-                ${price ? `<li>${esc(price)}</li>` : ''}
+                ${price ? `<li>${esc(price)}${promoOffer(item) ? ' precio promo' : ''}</li>` : ''}
+                ${promoSaving() ? `<li class="bk-summary__promo">${esc(promoSaving())}</li>` : ''}
                 ${choseProvider ? `<li>Con ${esc(providerName(state.providerId))}</li>` : ''}
             </ul>
             <p class="bk-summary__where">${esc($page.data('address'))}</p>
