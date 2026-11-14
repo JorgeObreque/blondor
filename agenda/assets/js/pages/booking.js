@@ -1184,7 +1184,9 @@ App.Pages.Booking = (function () {
             const value = String($input.val() || '').trim();
             let message = '';
 
-            if ((el.required || $input.hasClass('required')) && !value) {
+            if (el.id === 'email' && (el.required || $input.hasClass('required')) && !value) {
+                message = 'Necesitamos tu correo: es el medio oficial donde te llegan la confirmación y los recordatorios de tu hora.';
+            } else if ((el.required || $input.hasClass('required')) && !value) {
                 message = 'Completa este dato.';
             } else if (el.id === 'email' && value && !App.Utils.Validation.email(value)) {
                 message = 'Revisa el correo, parece incompleto.';

@@ -408,7 +408,7 @@ class Booking_payments
         $email = mb_strtolower($clean('email', 120));
 
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new InvalidArgumentException('Ingresa tu correo para recibir la confirmación de la reserva.');
+            throw new InvalidArgumentException('Necesitamos tu correo: es el medio oficial donde te llegan la confirmación y los recordatorios de tu hora.');
         }
 
         return [
