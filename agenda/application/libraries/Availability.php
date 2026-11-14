@@ -711,10 +711,10 @@ class Availability
         return $available_hours;
     }
 
-    /** Public bookings always require at least 30 minutes of notice. */
+    /** Public bookings always require at least 1 hour of notice. */
     public function earliest_public_booking_time(?DateTimeZone $timezone = null): DateTime
     {
-        $minutes = max(30, (int) setting('book_advance_timeout'));
+        $minutes = max(60, (int) setting('book_advance_timeout'));
         return new DateTime('+' . $minutes . ' minutes', $timezone);
     }
 

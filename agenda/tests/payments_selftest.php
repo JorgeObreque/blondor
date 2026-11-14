@@ -76,7 +76,7 @@ class Payments_selftest
 
         $tests = [
             'test_policy_limits',
-            'test_public_booking_requires_thirty_minutes',
+            'test_public_booking_requires_one_hour',
             'test_prepare_holds_the_slot',
             'test_public_booking_requires_the_email',
             'test_prepare_rejects_archived_and_free_services',
@@ -655,32 +655,32 @@ class Payments_selftest
         $this->equals(null, $policy->amount($options, 'full'), 'No se puede pagar el total si no se conoce');
     }
 
-    protected function test_public_booking_requires_thirty_minutes(): void
+    protected function test_public_booking_requires_one_hour(): void
     {
         $original = setting('book_advance_timeout');
         try {
             setting(['book_advance_timeout' => 0]);
             $now = time();
             $threshold = $this->CI->availability->earliest_public_booking_time()->getTimestamp();
-            $this->ok($threshold >= $now + 1800 && $threshold <= time() + 1800, 'Margen mínimo de 30 minutos');
+            $this->ok($threshold >= $now + 3600 && $threshold <= time() + 3600, 'Margen mínimo de 1 hora');
             $filter = new ReflectionMethod(Availability::class, 'consider_book_advance_timeout');
             $filter->setAccessible(true);
             $provider = ['timezone' => date_default_timezone_get()];
-            foreach ([29 => false, 31 => true] as $minutes => $expected) {
+            foreach ([59 => false, 61 => true] as $minutes => $expected) {
                 $start = date('Y-m-d H:i:s', time() + $minutes * 60);
                 $hours = $filter->invoke($this->CI->availability, substr($start, 0, 10), [substr($start, 11, 5)], $provider);
                 $this->equals($expected, !empty($hours), 'Filtro público: ' . $minutes . ' minutos');
             }
-            $start = date('Y-m-d H:i:s', time() + 29 * 60);
+            $start = date('Y-m-d H:i:s', time() + 59 * 60);
             $failed = false;
             try {
-                $this->prepare('exact', 'too_soon', [$start, date('Y-m-d H:i:s', time() + 89 * 60)]);
+                $this->prepare('exact', 'too_soon', [$start, date('Y-m-d H:i:s', time() + 119 * 60)]);
             } catch (InvalidArgumentException $e) {
-                $failed = str_contains($e->getMessage(), '30 minutos');
+                $failed = str_contains($e->getMessage(), '1 hora');
             }
-            $this->ok($failed, 'El servidor rechaza reservar dentro de los próximos 30 minutos');
-            setting(['book_advance_timeout' => 60]);
-            $this->ok($this->CI->availability->earliest_public_booking_time()->getTimestamp() >= time() + 3599, 'Conserva márgenes configurados mayores');
+            $this->ok($failed, 'El servidor rechaza reservar dentro de la próxima hora');
+            setting(['book_advance_timeout' => 90]);
+            $this->ok($this->CI->availability->earliest_public_booking_time()->getTimestamp() >= time() + 5399, 'Conserva márgenes configurados mayores');
         } finally {
             setting(['book_advance_timeout' => $original]);
         }

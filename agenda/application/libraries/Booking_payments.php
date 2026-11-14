@@ -159,7 +159,7 @@ class Booking_payments
         }
 
         if (new DateTime($plan['start_datetime']) < $this->CI->availability->earliest_public_booking_time()) {
-            throw new InvalidArgumentException('Elige una hora con al menos 30 minutos de anticipación.');
+            throw new InvalidArgumentException('Elige una hora con al menos 1 hora de anticipación.');
         }
 
         $this->check_quota($context);
