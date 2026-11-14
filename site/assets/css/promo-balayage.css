@@ -1,0 +1,312 @@
+/* ----------------------------------------------------------------------------
+ * Blondor - Landing de la promoción de balayage (promo-balayage.html)
+ *
+ * Usa los colores, botones y secciones de site.css; aquí solo va lo propio de esta página.
+ * ---------------------------------------------------------------------------- */
+
+.pb {
+  --promo: #8a4b0f;
+  --promo-soft: #fff4e0;
+  --promo-line: #f0cf9a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pb {
+    --promo: #f3c98a;
+    --promo-soft: #3a2a12;
+    --promo-line: #6b4d1f;
+  }
+}
+
+/* Portada -------------------------------------------------------------------- */
+
+.pb-hero .wrap {
+  display: grid;
+  gap: 22px;
+  padding-block: 22px 40px;
+}
+
+.pb-hero__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pb-hero h1 {
+  font-size: clamp(30px, 8vw, 52px);
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.pb-hero h1 em {
+  display: block;
+  font-style: normal;
+  font-size: 0.6em;
+  line-height: 1.25;
+  color: var(--ice);
+}
+
+.pb-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-price s {
+  font-size: 17px;
+  color: var(--on-blue-muted);
+}
+
+.pb-price strong {
+  font-size: clamp(40px, 11vw, 56px);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pb-hero__lead {
+  max-width: 44ch;
+  color: var(--on-blue-muted);
+}
+
+.pb-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pb-ctas .btn {
+  flex: 1 1 200px;
+}
+
+.pb-hero__photo {
+  position: relative;
+  margin: 0;
+  justify-self: center;
+  width: min(100%, 440px);
+}
+
+.pb-hero__photo img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 22px;
+}
+
+.pb-hero__photo figcaption {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(8, 43, 74, 0.78);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (min-width: 860px) {
+  .pb-hero .wrap {
+    grid-template-columns: minmax(0, 1fr) 440px;
+    align-items: center;
+    gap: 48px;
+    padding-block: 48px 64px;
+  }
+}
+
+/* Trabajos ------------------------------------------------------------------- */
+
+.pb-works {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.pb-works figure {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--tint);
+}
+
+.pb-works img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+.pb-works figcaption {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(8, 43, 74, 0.78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (min-width: 640px) {
+  .pb-works {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+/* Antes y después ------------------------------------------------------------- */
+
+.pb-change {
+  display: grid;
+  gap: 22px;
+  align-items: center;
+}
+
+.pb-change__photo {
+  margin: 0;
+}
+
+.pb-change__photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.pb-change .btn {
+  margin-top: 18px;
+}
+
+@media (min-width: 860px) {
+  .pb-change {
+    grid-template-columns: 460px minmax(0, 1fr);
+    gap: 48px;
+  }
+}
+
+/* Cómo funciona y oferta ------------------------------------------------------ */
+
+.pb-steps {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: pb-step;
+}
+
+.pb-steps li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px 14px 58px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  counter-increment: pb-step;
+}
+
+.pb-steps li::before {
+  content: counter(pb-step);
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 800;
+}
+
+.pb-steps span {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.pb-offer {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+  padding: 20px;
+  border: 1.5px solid var(--promo-line);
+  border-radius: 22px;
+  background: var(--promo-soft);
+}
+
+.pb-offer__tag {
+  width: fit-content;
+  margin: 0 0 8px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--promo);
+  color: var(--promo-soft);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pb-price--dark s {
+  color: var(--muted);
+}
+
+.pb-price--dark strong {
+  color: var(--promo);
+}
+
+.pb-offer__fine {
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--promo);
+}
+
+.pb-offer__ctas {
+  display: grid;
+  gap: 10px;
+}
+
+@media (min-width: 860px) {
+  .pb-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pb-offer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 28px;
+  }
+}
+
+/* En el celular la foto va primero: lo que convence es ver el trabajo. Los botones están en la barra fija de abajo. */
+@media (max-width: 859px) {
+  .pb-hero .wrap {
+    padding-top: 14px;
+  }
+
+  .pb-hero__photo {
+    order: -1;
+    width: 100%;
+  }
+
+  .pb-hero__photo img {
+    aspect-ratio: 5 / 4;
+    object-position: 50% 42%;
+  }
+
+  .pb-ctas .btn--outline {
+    display: none;
+  }
+}
