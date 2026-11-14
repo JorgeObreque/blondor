@@ -28,8 +28,40 @@
             + (location.protocol === 'https:' ? '; Secure' : '');
     }
 
+    /**
+     * Visitas que llegan desde un asistente de IA: mismas reglas que assets/js/site.js.
+     */
+    const AI_SOURCES = [
+        {code: 'AI-CHATGPT', test: /(^|\.)(chatgpt\.com|chat\.openai\.com)$/},
+        {code: 'AI-PERPLEXITY', test: /(^|\.)perplexity\.ai$/},
+        {code: 'AI-GEMINI', test: /(^|\.)gemini\.google\.com$/},
+        {code: 'AI-COPILOT', test: /(^|\.)copilot\.microsoft\.com$/},
+        {code: 'AI-CLAUDE', test: /(^|\.)claude\.ai$/},
+    ];
+
+    function aiSource() {
+        const hosts = [];
+
+        try {
+            hosts.push(String(new URLSearchParams(window.location.search).get('utm_source') || '').toLowerCase());
+            hosts.push(document.referrer ? new URL(document.referrer).hostname.toLowerCase() : '');
+        } catch (error) {
+            // Enlace u origen raro: no se anota nada.
+        }
+
+        for (const host of hosts) {
+            const source = AI_SOURCES.find((item) => item.test.test(host));
+
+            if (source) {
+                return source.code;
+            }
+        }
+
+        return null;
+    }
+
     function captureRef() {
-        const fromUrl = cleanRef(new URLSearchParams(location.search).get('ref'));
+        const fromUrl = cleanRef(new URLSearchParams(location.search).get('ref')) || aiSource();
 
         if (fromUrl) {
             document.cookie = 'bl_ref=' + encodeURIComponent(fromUrl) + '; Max-Age=604800; Path=/; SameSite=Lax' + cookieScope();

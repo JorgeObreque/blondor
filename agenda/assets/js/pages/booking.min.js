@@ -75,6 +75,40 @@ App.Pages.Booking = (function () {
     const appointmentId = manageMode && appointmentData ? appointmentData.id : null;
 
     /**
+     * Blondor: visitas que llegan desde un asistente de IA (igual que en blondor.cl, site/assets/js/site.js). Los asistentes
+     * marcan sus enlaces con utm_source (ChatGPT pone utm_source=chatgpt.com) o se ven en la página de origen. No
+     * hay código de anuncio, así que se anota un origen propio (AI-CHATGPT, …) para contarlas en el embudo.
+     */
+    const AI_SOURCES = [
+        {code: 'AI-CHATGPT', test: /(^|\.)(chatgpt\.com|chat\.openai\.com)$/},
+        {code: 'AI-PERPLEXITY', test: /(^|\.)perplexity\.ai$/},
+        {code: 'AI-GEMINI', test: /(^|\.)gemini\.google\.com$/},
+        {code: 'AI-COPILOT', test: /(^|\.)copilot\.microsoft\.com$/},
+        {code: 'AI-CLAUDE', test: /(^|\.)claude\.ai$/},
+    ];
+
+    function aiSource() {
+        const hosts = [];
+
+        try {
+            hosts.push(String(new URLSearchParams(window.location.search).get('utm_source') || '').toLowerCase());
+            hosts.push(document.referrer ? new URL(document.referrer).hostname.toLowerCase() : '');
+        } catch (error) {
+            // Enlace u origen raro: no se anota nada.
+        }
+
+        for (const host of hosts) {
+            const source = AI_SOURCES.find((item) => item.test.test(host));
+
+            if (source) {
+                return source.code;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Blondor: origen de la reserva (?ref=ADS:CMP-XXXXXX-ABCD que pone blondor.cl o el anuncio). Si no viene en el
      * enlace, se usa la cookie bl_ref de .blondor.cl (la clienta hizo clic en el anuncio y volvió otro día). Gana el
      * último clic y dura 7 días, igual que en el sitio. Solo mide: el servidor lo valida y no cambia ningún monto.
@@ -96,6 +130,9 @@ App.Pages.Booking = (function () {
         } catch (error) {
             fromUrl = null;
         }
+
+        // Sin código en el enlace: si llegó desde un asistente de IA (ChatGPT, …), ese es su origen.
+        fromUrl = fromUrl || aiSource();
 
         if (fromUrl) {
             const domain = window.location.hostname.endsWith('blondor.cl') ? '; Domain=.blondor.cl' : '';
