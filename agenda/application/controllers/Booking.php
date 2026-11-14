@@ -161,8 +161,10 @@ class Booking extends EA_Controller
         $require_first_name = setting('require_first_name');
         $display_last_name = setting('display_last_name');
         $require_last_name = setting('require_last_name');
-        $display_email = setting('display_email');
-        $require_email = setting('require_email');
+        // Blondor: la reserva pública siempre pide correo (sin él la cita pagada no se puede crear).
+        // El ajuste general sigue valiendo para la agenda interna, donde se crean clientas sin correo.
+        $display_email = true;
+        $require_email = true;
         $display_phone_number = setting('display_phone_number');
         $require_phone_number = setting('require_phone_number');
         $display_address = setting('display_address');

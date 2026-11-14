@@ -403,11 +403,18 @@ class Booking_payments
             throw new InvalidArgumentException('Ingresa los 9 dígitos del teléfono, sin +56.');
         }
 
+        // Sin correo la cita no se puede crear después del pago (la clienta se identifica por su correo):
+        // se exige aquí, antes de apartar la hora y de cobrar, aunque el ajuste general no lo pida.
+        $email = mb_strtolower($clean('email', 120));
+
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('Ingresa tu correo para recibir la confirmación de la reserva.');
+        }
 
         return [
             'first_name' => $clean('first_name', 100),
             'last_name' => $clean('last_name', 120),
-            'email' => mb_strtolower($clean('email', 120)),
+            'email' => $email,
             'phone_number' => $phone !== '' ? '+56' . $phone : '',
             'address' => $clean('address', 120),
             'city' => $clean('city', 120),

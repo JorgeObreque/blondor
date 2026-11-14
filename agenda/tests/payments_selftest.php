@@ -78,6 +78,7 @@ class Payments_selftest
             'test_policy_limits',
             'test_public_booking_requires_thirty_minutes',
             'test_prepare_holds_the_slot',
+            'test_public_booking_requires_the_email',
             'test_prepare_rejects_archived_and_free_services',
             'test_checkout_ignores_the_amount_of_the_browser',
             'test_double_click_creates_one_attempt',
@@ -682,6 +683,23 @@ class Payments_selftest
             $this->ok($this->CI->availability->earliest_public_booking_time()->getTimestamp() >= time() + 3599, 'Conserva márgenes configurados mayores');
         } finally {
             setting(['book_advance_timeout' => $original]);
+        }
+    }
+
+    protected function test_public_booking_requires_the_email(): void
+    {
+        // Sin correo la cita pagada no se puede crear: se rechaza antes de apartar la hora y de cobrar.
+        foreach (['' => 'vacío', 'no-es-correo' => 'inválido'] as $email => $label) {
+            $failed = false;
+            try {
+                $this->CI->booking_payments->prepare(
+                    $this->request('exact', null, null, $email),
+                    ['idempotency_key' => 'zztestnomail' . md5($email), 'ip' => $this->test_ip('nomail'), 'email' => $email],
+                );
+            } catch (InvalidArgumentException $e) {
+                $failed = str_contains($e->getMessage(), 'correo');
+            }
+            $this->ok($failed, 'Reserva pública sin correo (' . $label . ') se rechaza');
         }
     }
 
