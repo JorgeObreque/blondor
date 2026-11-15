@@ -8,6 +8,8 @@
  * 3. abandoned(): las clientas que llegaron a pagar y no pagaron, para escribirles. Se marca si después reservaron
  *    igual (por correo o teléfono).
  *
+ * La landing de una promoción anota además qué hizo la visita en la página (LANDING): sale aparte en report().
+ *
  * Publicador lee 2 y 3 por la API (api/v1/booking_funnel y api/v1/booking_abandoned).
  * ---------------------------------------------------------------------------- */
 
@@ -18,6 +20,13 @@ class Booking_funnel
      * quedó apartada) y salida a Webpay.
      */
     const STEPS = ['site', 'agenda', 'service', 'time', 'details', 'webpay'];
+
+    /**
+     * Lo que hace una visita en la landing de una promoción, para saber dónde se va: se quedó 10 segundos, vio las
+     * fotos, vio el antes y después, vio el precio con los botones, llegó al final, tocó reservar o tocó WhatsApp.
+     * No son pasos de la reserva: se cuentan aparte.
+     */
+    const LANDING = ['lp_stay', 'lp_works', 'lp_change', 'lp_offer', 'lp_end', 'lp_book', 'lp_wa'];
 
     const SESSION_PATTERN = '/^[a-z0-9]{16,40}$/D';
 
@@ -42,7 +51,7 @@ class Booking_funnel
         $session_id = is_string($event['session'] ?? null) ? strtolower(trim($event['session'])) : '';
         $step = is_string($event['step'] ?? null) ? $event['step'] : '';
 
-        if (!preg_match(self::SESSION_PATTERN, $session_id) || !in_array($step, self::STEPS, true)) {
+        if (!preg_match(self::SESSION_PATTERN, $session_id) || !in_array($step, array_merge(self::STEPS, self::LANDING), true)) {
             return false;
         }
 
@@ -73,7 +82,7 @@ class Booking_funnel
      * Por origen: visitas en cada paso y reservas pagadas (con lo cobrado) entre $from y $till (fechas Y-m-d,
      * incluidas). El origen vacío ('') son las visitas sin ?ref.
      *
-     * @return array [{attribution_code, steps: {site: n, …}, paid: n, paid_amount: float}]
+     * @return array [{attribution_code, steps: {site: n, …}, landing: {lp_stay: n, …}, paid: n, paid_amount: float}]
      */
     public function report(string $from, string $till): array
     {
@@ -84,7 +93,12 @@ class Booking_funnel
 
         $rows = [];
 
-        $blank = fn() => ['steps' => array_fill_keys(self::STEPS, 0), 'paid' => 0, 'paid_amount' => 0.0];
+        $blank = fn() => [
+            'steps' => array_fill_keys(self::STEPS, 0),
+            'landing' => array_fill_keys(self::LANDING, 0),
+            'paid' => 0,
+            'paid_amount' => 0.0,
+        ];
 
         $steps = $this->CI->db
             ->query(
@@ -96,7 +110,8 @@ class Booking_funnel
 
         foreach ($steps as $row) {
             $rows[$row['code']] ??= $blank();
-            $rows[$row['code']]['steps'][$row['step']] = (int) $row['visits'];
+            $group = in_array($row['step'], self::LANDING, true) ? 'landing' : 'steps';
+            $rows[$row['code']][$group][$row['step']] = (int) $row['visits'];
         }
 
         // Pagadas: reservas nuevas (no reagendas) cobradas por Webpay.

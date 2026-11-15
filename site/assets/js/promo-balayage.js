@@ -103,6 +103,59 @@
         }
     }
 
+    /**
+     * Qué hace la visita en la página, para saber dónde se va (Booking_funnel::LANDING en la agenda). Cada cosa
+     * cuenta una vez por visita.
+     */
+    function watchVisit() {
+        const sent = new Set();
+        const once = (step) => {
+            if (!sent.has(step)) {
+                sent.add(step);
+                track(step);
+            }
+        };
+
+        // Se quedó: 10 segundos con la página a la vista (no cuenta el tiempo en otra pestaña o con el teléfono bloqueado).
+        let visible = 0;
+        const clock = setInterval(() => {
+            if (document.visibilityState === 'visible' && ++visible >= 10) {
+                clearInterval(clock);
+                once('lp_stay');
+            }
+        }, 1000);
+
+        // Hasta dónde bajó: cada sección cuenta cuando pasa del borde de abajo y ocupa parte de la pantalla.
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            once(entry.target.dataset.pbSeen);
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                },
+                {rootMargin: '0px 0px -30% 0px'},
+            );
+
+            document.querySelectorAll('[data-pb-seen]').forEach((element) => observer.observe(element));
+        }
+
+        // Qué botón tocó. sendBeacon sale aunque el toque cambie de página.
+        document.addEventListener(
+            'click',
+            (event) => {
+                const link = event.target.closest ? event.target.closest('[data-promo-book], [data-promo-wa]') : null;
+
+                if (link) {
+                    once(link.hasAttribute('data-promo-wa') ? 'lp_wa' : 'lp_book');
+                }
+            },
+            true,
+        );
+    }
+
     function money(value) {
         return '$' + Math.round(value).toLocaleString('es-CL');
     }
@@ -211,6 +264,7 @@
     }
 
     track('site');
+    watchVisit();
     linkButtons(SERVICE);
 
     fetch(AGENDA + '/index.php/public_catalog')

@@ -1408,6 +1408,22 @@ class Payments_selftest
         $this->equals(1, $row['steps']['time'], 'Repetir un paso no suma');
         $this->equals(0, $row['steps']['details'], 'Nadie envió sus datos');
 
+        // En la landing de la promo: la primera vio las fotos y tocó WhatsApp. Se cuenta aparte de los pasos.
+        foreach (['lp_works', 'lp_wa', 'lp_wa'] as $action) {
+            $this->ok(
+                $funnel->track(['session' => 'zztestfunnelvisit1', 'step' => $action, 'ref' => $code]),
+                'Acción de la landing: ' . $action,
+            );
+        }
+
+        $row = $row_of();
+
+        $this->equals(1, $row['landing']['lp_works'], 'Una vio las fotos');
+        $this->equals(1, $row['landing']['lp_wa'], 'Tocar WhatsApp dos veces cuenta una');
+        $this->equals(0, $row['landing']['lp_book'], 'Nadie tocó reservar');
+        $this->ok(!isset($row['steps']['lp_wa']), 'La landing no se mezcla con los pasos de la reserva');
+        $this->equals(2, $row['steps']['site'], 'Los pasos siguen igual');
+
         // Aparta hora y se arrepiente: queda en la lista para recuperarla.
         $this->fake_webpay('authorized');
 

@@ -4,7 +4,8 @@
  * Blondor - Recorrido de la reserva (público)
  *
  * POST funnel/track con {session, step, ref, service}. Lo llaman blondor.cl y la reserva con navigator.sendBeacon
- * (texto plano, sin cookies de la agenda ni preflight). Responde siempre 204: un evento inválido se descarta en
+ * (texto plano, sin cookies de la agenda ni preflight). step es un paso de la reserva o algo que la visita hizo en la
+ * landing de una promoción (Booking_funnel::LANDING). Responde siempre 204: un evento inválido se descarta en
  * silencio y nunca afecta a la reserva.
  * ---------------------------------------------------------------------------- */
 

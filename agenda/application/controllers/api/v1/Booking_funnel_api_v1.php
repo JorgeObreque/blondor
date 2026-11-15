@@ -4,7 +4,8 @@
  * Blondor - Recorrido de la reserva (API para Publicador)
  *
  * GET api/v1/booking_funnel?from=YYYY-MM-DD&till=YYYY-MM-DD
- *     [{attributionCode, steps: {site, agenda, service, time, details, webpay}, paid, paidAmount}]
+ *     [{attributionCode, steps: {site, agenda, service, time, details, webpay},
+ *       landing: {lp_stay, lp_works, lp_change, lp_offer, lp_end, lp_book, lp_wa}, paid, paidAmount}]
  * GET api/v1/booking_abandoned?from=YYYY-MM-DD&till=YYYY-MM-DD
  *     [{id, created, attributionCode, reason, serviceId, serviceName, hairLength, start, totalAmount, depositAmount,
  *       firstName, lastName, email, phone, recovered}]
@@ -35,6 +36,7 @@ class Booking_funnel_api_v1 extends EA_Controller
                     fn($row) => [
                         'attributionCode' => $row['attribution_code'],
                         'steps' => $row['steps'],
+                        'landing' => $row['landing'],
                         'paid' => $row['paid'],
                         'paidAmount' => $row['paid_amount'],
                     ],
