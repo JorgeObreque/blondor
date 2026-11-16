@@ -11,6 +11,8 @@ class Staff_push
     const RECORD_FIRST_HOUR = 9;
     const RECORD_LAST_HOUR = 21;
     const RECORD_GIVE_UP_DAYS = 3;
+    /** Avisos antes de que empiece una cita, en minutos (de mayor a menor). */
+    const START_REMINDER_MINUTES = [120, 60, 30];
 
     public function __construct()
     {
@@ -246,6 +248,97 @@ class Staff_push
         return $queued;
     }
 
+    /**
+     * Cita por empezar: push 2 horas, 1 hora y 30 minutos antes del inicio a las cuentas de record_reminder_user_ids.
+     * Cada aviso vale hasta el siguiente (el de 2 h hasta 1 h antes, etc.), así una cita agendada con poca anticipación
+     * no recibe avisos atrasados de golpe; tampoco se avisa un plazo que ya había pasado cuando se agendó o reagendó.
+     * La clave lleva la hora de inicio: reagendar genera avisos nuevos y descarta los del horario anterior.
+     */
+    public function enqueue_start_reminders(?DateTimeImmutable $now = null): int
+    {
+        $db = $this->CI->db;
+        $users = $this->record_reminder_users();
+        if (!$this->tables_ready() || !$users) { return 0; }
+        $subscriptions = $db->where('enabled', 1)->where_in('id_users', $users)->get('push_subscriptions')->result_array();
+        if (!$subscriptions) { return 0; }
+
+        $timezone = $this->local_timezone();
+        $now = ($now ?? new DateTimeImmutable('now', $timezone))->setTimezone($timezone);
+        $stamp = $now->format('Y-m-d H:i:s');
+        $appointments = $db->select('a.id, a.id_users_provider, a.start_datetime, a.book_datetime, a.create_datetime, a.reminder_schedule_changed_at_utc')
+            ->from('appointments a')
+            ->where('a.is_unavailability', 0)
+            ->where('a.id_users_customer IS NOT NULL', null, false)
+            ->where('a.start_datetime >', $stamp)
+            ->where('a.start_datetime <=', $now->modify('+' . max(self::START_REMINDER_MINUTES) . ' minutes')->format('Y-m-d H:i:s'))
+            ->group_start()->where_not_in('a.status', ['Cancelado', 'No vino', 'Reagendado', 'Llegó', 'Pagado'])->or_where('a.status IS NULL', null, false)->group_end()
+            ->group_start()->where_not_in('a.payment_status', ['attention', 'cancelled'])->or_where('a.payment_status IS NULL', null, false)->group_end()
+            ->order_by('a.start_datetime')
+            ->get()->result_array();
+
+        $queued = 0;
+        foreach ($appointments as $appointment) {
+            $start = new DateTimeImmutable($appointment['start_datetime'], $timezone);
+            $minutes = $this->start_window($start, $now);
+            if ($minutes === null) { continue; }
+            $due = $start->modify('-' . $minutes . ' minutes');
+            if ($this->scheduled_at($appointment, $timezone) > $due) { continue; }
+            foreach ($subscriptions as $subscription) {
+                if (!$this->eligible_user((int) $subscription['id_users'], (int) $appointment['id_users_provider'])) { continue; }
+                $db->query('INSERT IGNORE INTO `' . $db->dbprefix('push_deliveries') . '`' .
+                    ' (id_subscription,id_users,id_appointments,event_key,event_type,status,attempts,available_at,create_datetime,update_datetime)' .
+                    ' VALUES (?,?,?,?,\'start\',\'pending\',0,?,?,?)', [
+                        $subscription['id'], $subscription['id_users'], $appointment['id'],
+                        'start-' . $appointment['id'] . '-' . $start->format('YmdHi') . '-' . $minutes, $stamp, $stamp, $stamp,
+                    ]);
+                $queued += $db->affected_rows() > 0 ? 1 : 0;
+            }
+        }
+        return $queued;
+    }
+
+    /** El aviso que corresponde ahora (120, 60 o 30), o null si ninguno está vigente. */
+    protected function start_window(DateTimeImmutable $start, DateTimeImmutable $now): ?int
+    {
+        $left = ($start->getTimestamp() - $now->getTimestamp()) / 60;
+        $windows = self::START_REMINDER_MINUTES;
+        foreach ($windows as $i => $minutes) {
+            $next = $windows[$i + 1] ?? 0;
+            if ($left <= $minutes && $left > $next) { return $minutes; }
+        }
+        return null;
+    }
+
+    /** Cuándo quedó fijado el horario actual de la cita (reagenda o creación), en hora local. */
+    protected function scheduled_at(array $appointment, DateTimeZone $timezone): DateTimeImmutable
+    {
+        if (!empty($appointment['reminder_schedule_changed_at_utc'])) {
+            return (new DateTimeImmutable($appointment['reminder_schedule_changed_at_utc'], new DateTimeZone('UTC')))->setTimezone($timezone);
+        }
+        $value = $appointment['book_datetime'] ?: ($appointment['create_datetime'] ?? null);
+        return $value ? new DateTimeImmutable($value, $timezone) : new DateTimeImmutable('1970-01-01', $timezone);
+    }
+
+    protected function local_timezone(): DateTimeZone
+    {
+        return new DateTimeZone((string) setting('default_timezone', 'America/Santiago') ?: 'America/Santiago');
+    }
+
+    /** Un aviso de inicio ya no sirve si la cita cambió de hora, ya empezó, se anuló o la clienta ya llegó. */
+    protected function start_reminder_stale(array $job, array $appointment): bool
+    {
+        $parts = explode('-', $job['event_key']);
+        $start = new DateTimeImmutable($appointment['start_datetime'], $this->local_timezone());
+        return ($parts[2] ?? '') !== $start->format('YmdHi')
+            || $start->getTimestamp() <= time()
+            || in_array($appointment['status'] ?? '', ['No vino', 'Reagendado', 'Llegó', 'Pagado'], true);
+    }
+
+    protected function start_reminder_text(int $minutes): string
+    {
+        return match ($minutes) { 120 => '2 horas', 60 => '1 hora', default => $minutes . ' minutos' };
+    }
+
     public function set_transport(?callable $transport): void { $this->transport = $transport; }
 
     protected function vapid_subject(): string
@@ -308,7 +401,8 @@ class Staff_push
             $discard = !$subscription || !$appointment || !$this->eligible_user((int) $job['id_users'], (int) ($appointment['id_users_provider'] ?? 0))
                 || (time() - strtotime($job['create_datetime']) > 86400)
                 || (($appointment['status'] ?? '') === 'Cancelado' && $job['event_type'] !== 'cancelled')
-                || ($job['event_type'] === 'record' && $this->record_reminder_stale($job, $appointment));
+                || ($job['event_type'] === 'record' && $this->record_reminder_stale($job, $appointment))
+                || ($job['event_type'] === 'start' && $this->start_reminder_stale($job, $appointment));
             if ($discard) { $db->update('push_deliveries', ['status' => 'discarded', 'claim_expires_at' => null], ['id' => $job['id']]); continue; }
             try {
                 // Revalidate stored endpoints before every HTTP request; never follow redirects.
@@ -321,6 +415,15 @@ class Staff_push
                         'tag' => 'blondor-record-' . (int) $appointment['id'],
                         'url' => $this->appointment_url((int) $appointment['id'], true),
                     ], 3600);
+                } elseif ($job['event_type'] === 'start') {
+                    // Sin nombre ni servicio en la pantalla bloqueada: la hora basta y el enlace abre la cita.
+                    $minutes = (int) (explode('-', $job['event_key'])[3] ?? 30);
+                    $hour = date('H:i', strtotime($appointment['start_datetime']));
+                    $result = $this->send($subscription, ['title' => 'Blondor · Cita a las ' . $hour,
+                        'body' => 'Empieza en ' . $this->start_reminder_text($minutes) . ', a las ' . $hour . '. Tócala para ver el detalle.',
+                        'tag' => 'blondor-start-' . (int) $appointment['id'],
+                        'url' => $this->appointment_url((int) $appointment['id']),
+                    ], $minutes * 60);
                 } else {
                     $title = match ($job['event_type']) {
                         'moved' => 'Una cita cambió de horario', 'cancelled' => 'Una cita fue cancelada', default => 'Nueva reserva confirmada',

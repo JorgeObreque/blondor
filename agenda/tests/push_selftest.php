@@ -18,7 +18,7 @@ class Push_selftest extends Payments_selftest
         try {
             foreach (['test_cli_identity_and_links', 'test_endpoint_validation', 'test_encryption_with_mock_http', 'test_staff_only_and_idempotent_subscription',
                 'test_payment_push_and_mail_failure', 'test_expiration_and_retry', 'test_owner_and_permission_recheck',
-                'test_disable_only_affects_owner', 'test_record_reminders'] as $test) {
+                'test_disable_only_affects_owner', 'test_record_reminders', 'test_start_reminders'] as $test) {
                 try { $this->$test(); $this->passed++; }
                 catch (Throwable $e) { $this->failures[] = $test . ': ' . $e->getMessage(); }
             }
@@ -262,6 +262,73 @@ class Push_selftest extends Payments_selftest
                 $this->CI->db->where_in('id', array_values($ids))->delete('appointments');
             }
             foreach ([[$this->admin_id, $guille], [$this->other_provider_id, $other], [$jorge, $boss]] as [$user, $subscription]) {
+                $this->CI->staff_push->disable($user, $subscription['endpoint']);
+            }
+        }
+    }
+
+    private function upcoming_appointment(DateTimeImmutable $start, DateTimeImmutable $booked, string $status = 'Agendado'): int
+    {
+        $this->CI->db->insert('appointments', ['id_users_provider' => $this->fixtures['provider_id'],
+            'id_users_customer' => $this->fixtures['customer_id'], 'id_services' => $this->fixtures['services']['exact'],
+            'start_datetime' => $start->format('Y-m-d H:i:s'), 'end_datetime' => $start->modify('+1 hour')->format('Y-m-d H:i:s'),
+            'book_datetime' => $booked->format('Y-m-d H:i:s'), 'status' => $status, 'is_unavailability' => 0,
+            'notes' => 'zz_test inicio', 'hash' => bin2hex(random_bytes(8)), 'payment_status' => 'legacy']);
+        return (int) $this->CI->db->insert_id();
+    }
+
+    protected function test_start_reminders(): void
+    {
+        $saved = ['record_reminder_user_ids' => setting('record_reminder_user_ids')];
+        $jorge = $this->make_staff('zz_test_push_jorge_start', 1);
+        $guille = $this->subscription('guille-start'); $boss = $this->subscription('jorge-start');
+        $this->CI->staff_push->subscribe($this->admin_id, $guille);
+        $this->CI->staff_push->subscribe($jorge, $boss);
+        setting(['record_reminder_user_ids' => (string) $this->admin_id]);
+        $clock = new DateTimeImmutable('now', new DateTimeZone((string) setting('default_timezone', 'America/Santiago') ?: 'America/Santiago'));
+        $clock = $clock->setTime((int) $clock->format('G'), (int) $clock->format('i'));
+        $yesterday = $clock->modify('-1 day');
+        $ids = [];
+        try {
+            $ids['two'] = $this->upcoming_appointment($clock->modify('+110 minutes'), $yesterday);
+            $ids['one'] = $this->upcoming_appointment($clock->modify('+50 minutes'), $yesterday);
+            $ids['late'] = $this->upcoming_appointment($clock->modify('+20 minutes'), $clock->modify('-5 minutes'));
+            $ids['cancelled'] = $this->upcoming_appointment($clock->modify('+100 minutes'), $yesterday, 'Cancelado');
+            $ids['arrived'] = $this->upcoming_appointment($clock->modify('+25 minutes'), $yesterday, 'Llegó');
+            $ids['far'] = $this->upcoming_appointment($clock->modify('+3 hours'), $yesterday);
+
+            $this->equals(2, $this->CI->staff_push->enqueue_start_reminders($clock), 'Aviso de 2 h y de 1 h, solo a Guille');
+            $keys = array_column($this->CI->db->where('event_type', 'start')->order_by('id')->get('push_deliveries')->result_array(), 'event_key', 'id_appointments');
+            $this->ok(str_ends_with($keys[$ids['two']] ?? '', '-120'), 'La cita en 110 min recibe el aviso de 2 horas');
+            $this->ok(str_ends_with($keys[$ids['one']] ?? '', '-60'), 'La cita en 50 min recibe el aviso de 1 hora');
+            $this->equals(0, $this->CI->db->where(['event_type' => 'start', 'id_users' => $jorge])->count_all_results('push_deliveries'), 'Jorge no recibe el aviso');
+            $this->equals(0, $this->CI->staff_push->enqueue_start_reminders($clock->modify('+5 minutes')), 'El cron cada 5 minutos no repite');
+
+            $this->CI->db->update('push_deliveries', ['available_at' => date('Y-m-d H:i:s', time() - 60)], ['event_type' => 'start']);
+            $this->fake_push(); $this->sent = []; $this->CI->staff_push->dispatch();
+            $this->equals(2, count($this->sent), 'Se envían los dos avisos');
+            $bodies = implode(' | ', array_column($this->sent, 'body'));
+            $this->ok(str_contains($bodies, 'Empieza en 2 horas') && str_contains($bodies, 'Empieza en 1 hora'), 'El texto dice cuánto falta');
+            $this->ok(str_contains($this->sent[0]['title'], 'Cita a las '), 'El título lleva la hora de inicio');
+            $this->ok(!str_contains(json_encode($this->sent), 'zz_test'), 'Sin datos de la clienta en la carga');
+
+            $this->equals(1, $this->CI->staff_push->enqueue_start_reminders($clock->modify('+25 minutes')), 'A 25 min de la cita de 1 h sale el de 30 min, sin repetir el de 2 h');
+            $this->equals(1, $this->CI->db->where(['event_type' => 'start', 'id_appointments' => $ids['two']])->like('event_key', '-120', 'before')
+                ->count_all_results('push_deliveries'), 'El aviso de 2 h no se duplica');
+            $this->equals(1, $this->CI->staff_push->enqueue_start_reminders($clock->modify('+55 minutes')), 'La cita de 2 h recibe el de 1 h');
+
+            $this->CI->db->update('appointments', ['start_datetime' => $clock->modify('+4 hours')->format('Y-m-d H:i:s')], ['id' => $ids['two']]);
+            $this->CI->db->update('push_deliveries', ['available_at' => date('Y-m-d H:i:s', time() - 60)], ['event_type' => 'start', 'status' => 'pending']);
+            $this->sent = []; $this->CI->staff_push->dispatch();
+            $this->equals(1, count($this->sent), 'Solo sale el de 30 min; el de la cita reagendada se descarta');
+            $this->ok(str_contains($this->sent[0]['body'] ?? '', 'Empieza en 30 minutos'), 'Aviso de 30 minutos');
+        } finally {
+            setting($saved);
+            if ($ids) {
+                $this->CI->db->where_in('id_appointments', array_values($ids))->delete('push_deliveries');
+                $this->CI->db->where_in('id', array_values($ids))->delete('appointments');
+            }
+            foreach ([[$this->admin_id, $guille], [$jorge, $boss]] as [$user, $subscription]) {
                 $this->CI->staff_push->disable($user, $subscription['endpoint']);
             }
         }
