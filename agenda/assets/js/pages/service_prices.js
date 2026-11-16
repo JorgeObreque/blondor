@@ -455,7 +455,7 @@ App.Pages.ServicePrices = (function () {
                     <span class="prices-row__text">
                         <span class="prices-row__title">${esc(state.filter === 'all' && !state.keyword ? variantName(item) : capitalize(item.name.trim()))}</span>
                         <span class="prices-row__sub">
-                            ${esc(usageText(item))} · ${duration(item.duration)}${item.variants.length ? ' · ' + item.variants.length + ' largos' : ''}${item.is_promo ? ' · ' + esc(promoText(item)) : ''}
+                            ${esc(usageText(item))} · ${duration(item.duration)}${item.variants.length ? ' · ' + item.variants.length + ' largos' : ''}${item.is_promo ? ' · ' + esc(promoText(item)) : ''}${item.latest_start_time ? ' · online hasta ' + esc(item.latest_start_time) : ''}
                             ${warn ? `<span class="prices-row__warn">· ${esc(warn)}</span>` : ''}
                         </span>
                     </span>
@@ -761,6 +761,13 @@ App.Pages.ServicePrices = (function () {
                     </select>
                 </label>
 
+                <label class="wizard-field">
+                    <span>Última hora para agendar online</span>
+                    <input type="time" id="edit-latest-start" class="prices-chip prices-chip--input" step="900"
+                           aria-label="Última hora para agendar online" value="${item.latest_start_time || ''}">
+                    <small class="prices-promo__hint">La hora más tarde a la que puede empezar al reservar online. Vacío = sin límite. El equipo puede agendar más tarde desde la agenda.</small>
+                </label>
+
                 <label class="prices-toggle">
                     <input type="checkbox" id="edit-promo" ${item.is_promo ? 'checked' : ''}>
                     <span>
@@ -883,6 +890,12 @@ App.Pages.ServicePrices = (function () {
 
         if (archived !== item.is_archived) {
             change.is_archived = archived;
+        }
+
+        const latest = ($edit.find('#edit-latest-start').val() || '').slice(0, 5) || null;
+
+        if (latest !== (item.latest_start_time || null)) {
+            change.latest_start_time = latest || '';
         }
 
         const promo = $edit.find('#edit-promo').prop('checked');

@@ -79,6 +79,7 @@ class Payments_selftest
             'test_public_booking_requires_one_hour',
             'test_prepare_holds_the_slot',
             'test_public_booking_requires_the_email',
+            'test_latest_start_time_limits_only_online_booking',
             'test_prepare_rejects_archived_and_free_services',
             'test_checkout_ignores_the_amount_of_the_browser',
             'test_double_click_creates_one_attempt',
@@ -683,6 +684,42 @@ class Payments_selftest
             $this->ok($this->CI->availability->earliest_public_booking_time()->getTimestamp() >= time() + 5399, 'Conserva márgenes configurados mayores');
         } finally {
             setting(['book_advance_timeout' => $original]);
+        }
+    }
+
+    protected function test_latest_start_time_limits_only_online_booking(): void
+    {
+        $service_id = $this->fixtures['services']['exact'];
+        $provider = $this->CI->providers_model->find($this->fixtures['provider_id']);
+        $date = date('Y-m-d', strtotime('+20 days'));
+
+        $this->CI->db->update('services', ['latest_start_time' => '16:00:00'], ['id' => $service_id]);
+
+        try {
+            $service = $this->CI->services_model->find($service_id);
+
+            $online = $this->CI->availability->get_available_hours($date, $service, $provider);
+            $staff = $this->CI->availability->get_available_hours($date, $service, $provider, null, null, false);
+
+            $this->ok(in_array('16:00', $online, true), 'Online se puede empezar a las 16:00');
+            $this->ok(!array_filter($online, fn($hour) => $hour > '16:00'), 'Online no hay horas después de las 16:00');
+            $this->ok((bool) array_filter($staff, fn($hour) => $hour > '16:00'), 'La agenda interna sí muestra horas más tarde');
+
+            // A caller that does not carry the column still gets the rule (read from the database).
+            unset($service['latest_start_time']);
+            $this->equals('16:00', $this->CI->availability->latest_start_time($service), 'La regla se lee de la base');
+
+            $failed = false;
+
+            try {
+                $this->prepare('exact', 'too_late', [$date . ' 17:00:00', $date . ' 18:00:00']);
+            } catch (Throwable $e) {
+                $failed = true;
+            }
+
+            $this->ok($failed, 'El servidor rechaza reservar online después de la última hora');
+        } finally {
+            $this->CI->db->update('services', ['latest_start_time' => null], ['id' => $service_id]);
         }
     }
 

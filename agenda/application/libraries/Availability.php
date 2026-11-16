@@ -53,6 +53,7 @@ class Availability
      * @param array $provider Provider data.
      * @param int|null $exclude_appointment_id Exclude an appointment from the availability generation.
      * @param int|null $exclude_hold_id Exclude a pending payment from the availability generation.
+     * @param bool $online Online booking (applies the latest start time of the service; the staff agenda does not).
      *
      * @return array
      *
@@ -64,6 +65,7 @@ class Availability
         array $provider,
         int $exclude_appointment_id = null,
         int $exclude_hold_id = null,
+        bool $online = true,
     ): array {
         if ($this->CI->blocked_periods_model->is_entire_date_blocked($date)) {
             return [];
@@ -93,6 +95,10 @@ class Availability
         }
 
         $available_hours = $this->consider_book_advance_timeout($date, $available_hours, $provider);
+
+        if ($online) {
+            $available_hours = $this->consider_latest_start_time($available_hours, $service);
+        }
 
         return $this->consider_future_booking_limit($date, $available_hours, $provider);
     }
@@ -709,6 +715,43 @@ class Availability
         }
 
         return $available_hours;
+    }
+
+    /**
+     * Blondor: the latest time a service can start when booked online ("H:i"), or null when it has no limit.
+     *
+     * Read from the database when the given array does not carry it, so a caller cannot skip the rule.
+     */
+    public function latest_start_time(array $service): ?string
+    {
+        if (!array_key_exists('latest_start_time', $service) && !empty($service['id'])) {
+            $row = $this->CI->db->field_exists('latest_start_time', 'services')
+                ? $this->CI->db
+                    ->select('latest_start_time')
+                    ->get_where('services', ['id' => (int) $service['id']])
+                    ->row_array()
+                : null;
+
+            $service['latest_start_time'] = $row['latest_start_time'] ?? null;
+        }
+
+        $value = (string) ($service['latest_start_time'] ?? '');
+
+        return preg_match('/^\d{2}:\d{2}/', $value) ? substr($value, 0, 5) : null;
+    }
+
+    /**
+     * Blondor: remove the start times after the latest start time of the service (online booking only).
+     */
+    protected function consider_latest_start_time(array $available_hours, array $service): array
+    {
+        $latest = $this->latest_start_time($service);
+
+        if ($latest === null) {
+            return $available_hours;
+        }
+
+        return array_values(array_filter($available_hours, fn($hour) => $hour <= $latest));
     }
 
     /** Public bookings always require at least 1 hour of notice. */

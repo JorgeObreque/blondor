@@ -177,7 +177,8 @@ class Agenda extends EA_Controller
             );
             $exclude_id = request('exclude_appointment_id') ? (int) request('exclude_appointment_id') : null;
 
-            $hours = $this->availability->get_available_hours($date, $service, $provider, $exclude_id);
+            // The latest start time of a service is for online bookings: the team can still book later.
+            $hours = $this->availability->get_available_hours($date, $service, $provider, $exclude_id, null, false);
 
             // Today: hide hours that already passed.
             if ($date === date('Y-m-d')) {

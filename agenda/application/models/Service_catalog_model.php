@@ -194,6 +194,10 @@ class Service_catalog_model extends EA_Model
                 );
             }
 
+            if (array_key_exists('latest_start_time', $change)) {
+                $update['latest_start_time'] = $this->valid_latest_start_time($change['latest_start_time']);
+            }
+
             if ($update) {
                 $update['update_datetime'] = $now;
                 $this->db->update('services', $update, ['id' => $service['id']]);
@@ -323,6 +327,22 @@ class Service_catalog_model extends EA_Model
     }
 
     /**
+     * The latest start time for online bookings ("HH:MM:00"), or null for no limit.
+     */
+    private function valid_latest_start_time($value): ?string
+    {
+        if ($value === '' || $value === null || $value === false) {
+            return null;
+        }
+
+        if (!is_string($value) || !preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $value)) {
+            throw new InvalidArgumentException('La última hora para agendar online no es válida.');
+        }
+
+        return $value . ':00';
+    }
+
+    /**
      * The regular service a promo discounts (its price is shown struck through), or null for none.
      */
     private function valid_regular_service($value, int $promo_id): ?int
@@ -359,6 +379,9 @@ class Service_catalog_model extends EA_Model
             'promo_daily_quota' => !empty($service['promo_daily_quota']) ? (int) $service['promo_daily_quota'] : null,
             'promo_regular_service_id' => !empty($service['promo_regular_service_id'])
                 ? (int) $service['promo_regular_service_id']
+                : null,
+            'latest_start_time' => !empty($service['latest_start_time'])
+                ? substr($service['latest_start_time'], 0, 5)
                 : null,
             'variants' => array_map(
                 fn($variant) => [
