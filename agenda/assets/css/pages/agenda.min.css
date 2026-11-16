@@ -233,12 +233,34 @@
 }
 
 .agenda-row__time {
-  width: 46px;
+  width: 52px;
   flex: none;
   font-size: 13px;
   font-weight: 700;
   color: var(--ag-muted);
   padding-top: 14px;
+}
+
+.agenda-row__time--start {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ag-ink);
+  padding-top: 12px;
+}
+
+.agenda-card__when {
+  font-size: 14px;
+  color: var(--ag-ink-2);
+}
+
+.agenda-card__when strong {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ag-brand);
+}
+
+.agenda-card__end {
+  color: var(--ag-muted);
 }
 
 .agenda-card {
@@ -952,6 +974,17 @@
   font-size: 15px;
   font-weight: 700;
   margin-top: 2px;
+}
+
+.detail-when__start {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--ag-brand);
+}
+
+.detail-when__end {
+  font-weight: 600;
+  color: var(--ag-muted);
 }
 
 .detail-actions {

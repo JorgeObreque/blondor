@@ -603,13 +603,14 @@ App.Pages.Agenda = (function () {
 
                     return `
                         <div class="agenda-row" data-row-id="${item.id}">
-                            <span class="agenda-row__time">${hm(item.start)}</span>
+                            <span class="agenda-row__time agenda-row__time--start" title="Hora de inicio">${hm(item.start)}</span>
                             <button type="button" class="${classes.join(' ')}" data-appointment-id="${item.id}">
                                 <span class="agenda-card__top">
                                     <span class="agenda-card__name">${esc(item.customer_name)}</span>
                                     <span class="agenda-status" data-status="${esc(item.status)}">${esc(STATUS_LABELS[item.status] || item.status)}</span>
                                 </span>
-                                <span class="agenda-card__meta">${esc(svc)} · hasta ${hm(item.end)}</span>
+                                <span class="agenda-card__when">Inicio <strong>${hm(item.start)}</strong> <span class="agenda-card__end">· termina ${hm(item.end)}</span></span>
+                                <span class="agenda-card__meta">${esc(svc)}</span>
                                 ${paymentLine(item)}
                                 ${duplicates.has(item.id) ? '<span class="agenda-card__warn">Cita repetida: revisa y cancela una</span>' : ''}
                             </button>
@@ -1308,7 +1309,7 @@ App.Pages.Agenda = (function () {
                     </h2>
                     <div class="detail-sub">${esc(item.service_name || 'Servicio')}${money(item.price) ? ' · ' + money(item.price) : ''}</div>
                     ${paymentLine(item)}
-                    <div class="detail-when">${esc(dayLabel(date, true))} · ${hm(item.start)} a ${hm(item.end)}</div>
+                    <div class="detail-when">${esc(dayLabel(date, true))} · Inicio <strong class="detail-when__start">${hm(item.start)}</strong> <span class="detail-when__end">· termina ${hm(item.end)}</span></div>
                 </div>
                 <span class="agenda-status" data-status="${esc(item.status)}">${esc(STATUS_LABELS[item.status] || item.status)}</span>
             </div>
