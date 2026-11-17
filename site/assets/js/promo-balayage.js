@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------
- * Blondor - Landing de la promoción de balayage (promo-balayage.html)
+ * Blondor - Landings de promociones (promo-balayage.html, promo-corte.html)
  *
  * Igual que el resto del sitio: guarda el origen de la visita (?ref=), lo lleva a la agenda y a WhatsApp y anota la
  * visita en el embudo. Precio, días y cupos se leen de la agenda (public_catalog) para que la página diga siempre lo
@@ -12,6 +12,8 @@
     const AGENDA = isLocal ? `http://${location.hostname}:8088` : document.body.dataset.agenda;
     const SERVICE = Number(document.body.dataset.service);
     const REGULAR = Number(document.body.dataset.regular);
+    // Precio normal escrito a mano (data-was) cuando la promo junta varios servicios: corte + masaje + peinado.
+    const FIXED_WAS = Number(document.body.dataset.was) || 0;
     const DAYS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'];
 
     // Origen de la visita: mismas reglas que assets/js/site.js (cookie bl_ref de .blondor.cl por 7 días).
@@ -218,7 +220,10 @@
      * Price, days and slots as the agenda has them now.
      */
     function render(services) {
-        const promo = services.find((service) => service.id === SERVICE && service.is_promo);
+        // Una promo es la marcada en la agenda (con días y cupos) o un servicio cuyo nombre empieza con "Promo".
+        const promo = services.find(
+            (service) => service.id === SERVICE && (service.is_promo || /^promo/i.test(String(service.name).trim())),
+        );
 
         if (!promo) {
             // The promo ended or is hidden: the buttons open the whole catalog instead of a service that is gone.
@@ -229,8 +234,8 @@
 
         const regular = services.find((service) => service.id === REGULAR);
         const prices = regular ? regular.variants.map((variant) => Number(variant.price)).filter((price) => price > 0) : [];
-        const was = prices.length ? Math.min(...prices) : regular ? Number(regular.price) : 0;
-        const from = prices.length > 1 || (regular && regular.price_type === 'from');
+        const was = FIXED_WAS || (prices.length ? Math.min(...prices) : regular ? Number(regular.price) : 0);
+        const from = !FIXED_WAS && (prices.length > 1 || (regular && regular.price_type === 'from'));
         const days = daysText(promo.promo_weekdays);
         const quota = promo.promo_daily_quota;
 

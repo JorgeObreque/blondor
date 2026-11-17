@@ -175,7 +175,8 @@
   margin: 0;
 }
 
-.pb-change__photo img {
+.pb-change__photo img,
+.pb-change__photo video {
   display: block;
   width: 100%;
   height: auto;
@@ -184,6 +185,21 @@
 
 .pb-change .btn {
   margin-top: 18px;
+}
+
+.pb-change__photo video {
+  max-height: 80vh;
+  margin-inline: auto;
+  width: auto;
+  max-width: 100%;
+  background: #000;
+}
+
+.pb-includes {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding-left: 1.2em;
 }
 
 @media (min-width: 860px) {
