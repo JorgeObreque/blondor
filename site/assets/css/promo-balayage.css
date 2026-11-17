@@ -310,3 +310,26 @@
     display: none;
   }
 }
+
+/* Quien necesita otro horario (por ejemplo después del trabajo) lo pide por WhatsApp en vez de irse. */
+.pb-other-time {
+  margin: 0;
+  font-size: 15px;
+  color: var(--on-blue-muted);
+}
+
+.pb-other-time a {
+  color: var(--on-blue);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pb-offer__ctas .pb-other-time {
+  text-align: center;
+  color: var(--muted);
+}
+
+.pb-offer__ctas .pb-other-time a {
+  color: var(--promo);
+}
