@@ -148,9 +148,12 @@
         document.addEventListener(
             'click',
             (event) => {
-                const link = event.target.closest ? event.target.closest('[data-promo-book], [data-promo-wa]') : null;
+                const link = event.target.closest
+                    ? event.target.closest('[data-promo-book], [data-promo-wa], [data-promo-slot]')
+                    : null;
 
                 if (link) {
+                    // Tocar una hora libre también es ir a reservar.
                     once(link.hasAttribute('data-promo-wa') ? 'lp_wa' : 'lp_book');
                 }
             },
@@ -268,9 +271,108 @@
         );
     }
 
+    /**
+     * "Precio promo reservando hasta el …": cuántos días quedan, y se oculta pasada la fecha (data-until, YYYY-MM-DD).
+     */
+    function renderDeadline() {
+        const until = document.body.dataset.until;
+        const element = document.querySelector('[data-pb-deadline]');
+
+        if (!until || !element) {
+            return;
+        }
+
+        const today = new Date();
+        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const [year, month, day] = until.split('-').map(Number);
+        const left = Math.round((new Date(year, month - 1, day) - start) / 86400000);
+
+        if (left < 0) {
+            element.hidden = true;
+            return;
+        }
+
+        element.querySelector('[data-pb-left]').textContent =
+            left === 0 ? ' · último día' : left === 1 ? ' · queda 1 día' : ' · quedan ' + left + ' días';
+    }
+
+    function localDate(offset) {
+        const date = new Date();
+        date.setDate(date.getDate() + offset);
+
+        return [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+            .map((part, index) => (index ? String(part).padStart(2, '0') : part))
+            .join('-');
+    }
+
+    function dayLabel(date) {
+        if (date === localDate(0)) {
+            return 'Hoy';
+        }
+
+        if (date === localDate(1)) {
+            return 'Mañana';
+        }
+
+        const [year, month, day] = date.split('-').map(Number);
+        const name = new Date(year, month - 1, day).toLocaleDateString('es-CL', {weekday: 'long'});
+
+        return name.charAt(0).toUpperCase() + name.slice(1) + ' ' + day;
+    }
+
+    /**
+     * Las próximas horas libres de la agenda; tocar una abre la reserva con ese día y esa hora ya elegidos.
+     */
+    function renderSlots(days) {
+        const box = document.querySelector('[data-pb-slots]');
+
+        if (!box || !Array.isArray(days) || !days.length) {
+            return;
+        }
+
+        const list = box.querySelector('.pb-slots__list');
+
+        days.forEach((day) => {
+            day.hours.forEach((hour) => {
+                const params = new URLSearchParams({service: SERVICE, date: day.date, time: hour});
+
+                if (REF) {
+                    params.set('ref', REF);
+                }
+
+                const link = document.createElement('a');
+                link.className = 'pb-slot';
+                link.dataset.promoSlot = '';
+                link.href = AGENDA + '/index.php/booking?' + params.toString();
+
+                const label = document.createElement('small');
+                label.textContent = dayLabel(day.date);
+
+                const time = document.createElement('strong');
+                time.textContent = hour;
+
+                link.append(label, time);
+                link.setAttribute('aria-label', 'Reservar ' + label.textContent.toLowerCase() + ' a las ' + hour);
+                list.append(link);
+            });
+        });
+
+        box.hidden = false;
+    }
+
     track('site');
     watchVisit();
+    renderDeadline();
     linkButtons(SERVICE);
+
+    if (document.querySelector('[data-pb-slots]')) {
+        fetch(AGENDA + '/index.php/public_catalog/next_slots?service=' + SERVICE)
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error('slots ' + response.status))))
+            .then(renderSlots)
+            .catch(() => {
+                // Sin agenda quedan los botones de siempre.
+            });
+    }
 
     fetch(AGENDA + '/index.php/public_catalog')
         .then((response) => (response.ok ? response.json() : Promise.reject(new Error('catalog ' + response.status))))

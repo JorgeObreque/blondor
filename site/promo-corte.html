@@ -21,13 +21,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Manrope:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="assets/css/site.css?v=8">
-    <link rel="stylesheet" href="assets/css/promo-balayage.css?v=3">
+    <link rel="stylesheet" href="assets/css/promo-balayage.css?v=4">
 </head>
 <!-- Landing de la promo corte + masaje capilar + peinado (destino de los anuncios). data-service es el servicio de
      la agenda; precio y días se leen de la agenda (public_catalog). data-was es el precio normal sumado a mano:
      corte mujer $20.000 + masaje hidratante desde $20.000 + brushing desde $16.000. Usa el mismo script y estilos
      que la landing del balayage. Los textos escritos aquí son el respaldo. -->
-<body class="pb" data-agenda="https://agenda.blondor.cl" data-service="62" data-was="56000">
+<body class="pb" data-agenda="https://agenda.blondor.cl" data-service="62" data-was="56000" data-until="2026-11-22">
 
 <header class="top">
     <div class="wrap">
@@ -47,6 +47,12 @@
                     <strong id="pb-now">$27.990</strong>
                 </p>
                 <p class="pb-hero__lead" id="pb-lead">Corto o extra largo, pagas lo mismo.</p>
+                <p class="pb-deadline" data-pb-deadline>Precio promo reservando hasta el <strong>domingo 22 de noviembre</strong><span data-pb-left></span></p>
+                <!-- Próximas horas libres de la agenda (public_catalog/next_slots): tocar una abre la reserva con esa hora. -->
+                <div class="pb-slots" data-pb-slots hidden>
+                    <p class="pb-slots__label">Próximas horas libres</p>
+                    <div class="pb-slots__list"></div>
+                </div>
                 <div class="pb-ctas">
                     <a class="btn btn--white" data-promo-book href="https://agenda.blondor.cl/index.php/booking?service=62">Elegir día y hora</a>
                     <a class="btn btn--outline" data-promo-wa href="https://wa.me/56966756614?text=Hola%20Blondor%2C%20me%20interesa%20la%20promo%20de%20corte%2C%20masaje%20capilar%20y%20peinado%20y%20quiero%20coordinar%20d%C3%ADa%20y%20hora" target="_blank" rel="noopener">
@@ -175,6 +181,6 @@
     </a>
 </div>
 
-<script src="assets/js/promo-balayage.js?v=4" defer></script>
+<script src="assets/js/promo-balayage.js?v=5" defer></script>
 </body>
 </html>

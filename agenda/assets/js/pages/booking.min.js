@@ -1043,6 +1043,11 @@ App.Pages.Booking = (function () {
     }
 
     function renderSlots(hours) {
+        if (state.time && !hours.includes(state.time)) {
+            state.time = null;
+            renderBar();
+        }
+
         if (!hours.length) {
             $slots.html('<p class="bk-empty">Este día ya no quedan horas. Elige otro día.</p>');
             return;
@@ -1783,6 +1788,16 @@ App.Pages.Booking = (function () {
                 }
 
                 step = lengthReady() ? 'time' : 'service';
+
+                // A free hour tapped on a promo landing (?date=2026-11-20&time=18:30) comes already chosen; if it was
+                // taken meanwhile, renderSlots() drops it and the client picks another one.
+                const date = String(App.Utils.Url.queryParam('date') || '');
+                const time = String(App.Utils.Url.queryParam('time') || '');
+
+                if (step === 'time' && /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= moment().format('YYYY-MM-DD')) {
+                    state.date = date;
+                    state.time = /^\d{2}:\d{2}$/.test(time) ? time : null;
+                }
             }
         }
 
